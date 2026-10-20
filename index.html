@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- ตัวอ่านบาร์โค้ด ZXing-C++ (WASM) โหลดอัตโนมัติเมื่อเปิดกล้อง -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <!-- Tesseract OCR โหลดเฉพาะตอนใช้งาน (lazy) เพื่อประหยัดเน็ตมือถือ -->
 
@@ -22,8 +22,7 @@
     body { font-family: 'Prompt', sans-serif; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     #cameraViewportContainer { position: relative; background: #000; min-height: 260px; border-radius: .75rem; overflow: hidden; }
     #reader { width: 100% !important; min-height: 260px; border: none !important; }
-    #reader video { width: 100% !important; min-height: 260px; object-fit: cover !important; border-radius: .75rem; }
-    #reader img[alt="Info icon"], #reader__dashboard_section_csr span { display:none !important; }
+    #reader video { width: 100%; height: 300px; object-fit: cover; border-radius: .75rem; display:block; }
     .scanner-laser { position:absolute; left:8%; right:8%; height:2px; background:#ef4444; box-shadow:0 0 10px #ef4444,0 0 20px #ef4444; animation: scanLaser 2s infinite ease-in-out; }
     @keyframes scanLaser { 0%,100%{top:12%} 50%{top:88%} }
     @keyframes flashRed { 0%,100%{background:#dc2626} 50%{background:#7f1d1d} }
@@ -65,7 +64,7 @@
           <svg class="w-6 h-6 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
         </div>
         <div>
-          <h1 class="text-base font-bold leading-tight flex items-center gap-1.5">PackScan Pro <span class="text-[10px] bg-emerald-500 font-bold px-1.5 rounded">Hybrid</span></h1>
+          <h1 class="text-base font-bold leading-tight flex items-center gap-1.5">PackScan Pro <span class="text-[10px] bg-emerald-500 font-bold px-1.5 rounded">Hybrid</span><span class="text-[9px] text-indigo-200 font-normal">v2.1</span></h1>
           <p class="text-[11px] text-indigo-200">เพชรสยาม (PST) • แพ็ค • ขึ้นรถ • ส่งมอบ</p>
         </div>
       </div>
@@ -144,8 +143,8 @@
         <div id="cameraViewportContainer">
           <div id="reader"></div>
           <div id="scannerOverlay" class="hidden absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
-            <div class="w-72 h-36 border-2 border-indigo-300/80 rounded-xl relative"><div class="scanner-laser"></div></div>
-            <p class="text-white/90 text-xs mt-3 bg-black/60 px-3 py-1 rounded-full">จ่อบาร์โค้ดเลขพัสดุบนใบปะหน้า</p>
+            <div class="w-[92%] h-[55%] border-2 border-emerald-300/90 rounded-xl relative"><div class="scanner-laser"></div></div>
+            <p class="text-white/95 text-[11px] mt-2 bg-black/60 px-3 py-1 rounded-full">วางบาร์โค้ดแนวนอนให้เต็มกรอบ • ห่าง 15–25 ซม.</p>
           </div>
           <div id="cameraInactiveUI" class="absolute inset-0 bg-slate-900 text-white flex flex-col items-center justify-center p-4 text-center z-20">
             <p class="font-bold text-sm">กล้องยังไม่ได้เริ่มทำงาน</p>
@@ -168,6 +167,10 @@
           </div>
         </div>
 
+        <div class="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-slate-400">
+          <div id="zoomBox" class="hidden flex items-center gap-1 flex-1"><span>🔍 ซูม</span><input type="range" id="zoomRange" class="flex-1 accent-indigo-600"></div>
+          <span id="engineInfo" class="ml-auto"></span>
+        </div>
         <div class="mt-2 flex gap-2">
           <input type="text" id="manualInput" inputmode="text" autocomplete="off" autocapitalize="characters" placeholder="ยิงปืน USB / พิมพ์เลขพัสดุ แล้วกด Enter"
                  class="flex-1 bg-slate-50 border border-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 font-mono">
@@ -199,6 +202,7 @@
             </div>
             <div id="resItemsContainer" class="space-y-2"></div>
             <div id="resBuyerNoteContainer" class="hidden mt-2 p-2 bg-rose-100 border border-rose-300 rounded-lg text-sm text-rose-700 font-bold">💬 ลูกค้าแจ้ง: <span id="resBuyerNote"></span></div>
+            <div id="notInMasterBox" class="hidden mt-2 p-2.5 bg-amber-100 border-2 border-amber-400 rounded-lg text-xs text-amber-900 leading-relaxed"></div>
             <div id="quickProductWrap" class="hidden mt-2 pt-2 border-t border-amber-200">
               <span class="text-[10px] text-amber-800 font-bold block mb-1">⚡ ไม่พบในไฟล์ออเดอร์ — เลือกสินค้าด่วน:</span>
               <div id="quickProductChips" class="flex flex-wrap gap-1"></div>
@@ -209,6 +213,7 @@
             <span class="text-emerald-800 text-[11px] font-semibold">📍 จัดส่งไปที่:</span>
             <p id="resRecipient" class="text-xs font-medium text-slate-800">-</p>
             <p id="resDestination" class="text-base font-black text-emerald-900 leading-tight">-</p>
+            <p id="resAddress" class="hidden text-[11px] text-slate-600 mt-0.5 leading-snug"></p>
           </div>
 
           <div class="grid grid-cols-4 gap-2 pt-1">
@@ -529,7 +534,7 @@ function guessCourierFromTracking(t) {
   if (/^(KER|KEX|KBK|SHP)/.test(t)) return 'KERRY';
   if (/^(LEX|LX[A-Z]{2}|LZ)/.test(t)) return 'LEX';
   if (/^(JT|JNT)/.test(t) || /^[68]\d{11}$/.test(t)) return 'JT';
-  if (/^(TDZ|THDHL|DHL)/.test(t)) return 'DHL';
+  if (/^(TDZ|THDHL|DHL)/.test(t) || /^71\d{14}$/.test(t)) return 'DHL'; // DHL eCommerce TH: "DHL ID: 7127…" 16 หลัก
   if (/^BEST/.test(t)) return 'BEST';
   if (/^[A-Z]{2}\d{9}TH$/.test(t)) return 'THP';
   return 'OTHER';
@@ -578,7 +583,7 @@ const state = {
   workflow: 'pack', scanMode: 'live', formatMode: 'all', truckTarget: 'SPX',
   pending: null, editTarget: null, truckPhoto: null, torchOn: false,
 };
-let html5QrCode = null, cameraRunning = false, lastCode = '', lastCodeAt = 0, bigTagRecord = null;
+let cameraRunning = false, lastCode = '', lastCodeAt = 0, bigTagRecord = null;
 
 function lsGet(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
 function lsSet(k, v) {
@@ -705,93 +710,232 @@ function setBarcodeFormatMode(m) {
   });
   if (cameraRunning) { stopLiveScanner().then(() => startLiveScanner()); }
 }
-function getFormats() {
-  if (typeof Html5QrcodeSupportedFormats === 'undefined') return undefined;
-  const F = Html5QrcodeSupportedFormats;
-  const oneD = [F.CODE_128, F.CODE_39, F.CODE_93, F.EAN_13, F.EAN_8, F.UPC_A, F.ITF, F.CODABAR];
-  if (state.formatMode === '1d') return oneD;
-  if (state.formatMode === 'qr') return [F.QR_CODE, F.DATA_MATRIX];
-  return [...oneD, F.QR_CODE, F.DATA_MATRIX, F.PDF_417];
+// ---------- SCANNER ENGINE (ZXing-C++ WebAssembly / BarcodeDetector) ----------
+// ใช้ BarcodeDetector ของเครื่อง (Android Chrome) ถ้ามี, ถ้าไม่มี (iPhone Safari) ใช้ ZXing-C++ WASM ซึ่งอ่านบาร์โค้ดแท่งยาวๆ ของ SPX/Flash/J&T/Best/DHL ได้แม่นกว่ามาก
+const POLYFILL_URL = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.2/dist/iife/ponyfill.js';
+const FORMATS_1D = ['code_128', 'code_39', 'code_93', 'codabar', 'ean_13', 'ean_8', 'itf', 'upc_a', 'upc_e'];
+const FORMATS_2D = ['qr_code', 'data_matrix', 'pdf417'];
+let detector = null, detectorKey = '', detectorEngine = '', polyfillLoading = null;
+let camStream = null, camVideo = null, scanLoopTimer = null, scanBusy = false, frameNo = 0;
+const scanCanvas = document.createElement('canvas');
+
+function wantedFormats() { return state.formatMode === '1d' ? FORMATS_1D : state.formatMode === 'qr' ? FORMATS_2D : [...FORMATS_1D, ...FORMATS_2D]; }
+function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('โหลดไม่สำเร็จ: ' + src)); document.head.appendChild(s); }); }
+async function getDetector() {
+  const want = wantedFormats(); const key = want.join(',');
+  if (detector && detectorKey === key) return detector;
+  detectorKey = key; detector = null;
+  if ('BarcodeDetector' in window) {
+    try {
+      const sup = await window.BarcodeDetector.getSupportedFormats();
+      if (sup.includes('code_128') && sup.includes('qr_code')) { detector = new window.BarcodeDetector({ formats: want.filter(f => sup.includes(f)) }); detectorEngine = 'native'; return detector; }
+    } catch (e) {}
+  }
+  if (!window.BarcodeDetectionAPI) { if (!polyfillLoading) polyfillLoading = loadScript(POLYFILL_URL); await polyfillLoading; }
+  detector = new window.BarcodeDetectionAPI.BarcodeDetector({ formats: want }); detectorEngine = 'zxing';
+  return detector;
+}
+// เลือกรหัสที่ "น่าจะเป็นเลขพัสดุ" ที่สุด จากหลายบาร์โค้ดบนใบปะหน้า (ใบปะหน้ามีทั้งเลขพัสดุ, เลขออเดอร์, QR)
+function scoreCode(raw, format) {
+  const code = extractTracking(raw); if (!code) return { code: null, score: -1 };
+  let s = 1;
+  if (state.master[code]) s += 100;
+  else if (guessCourierFromTracking(code) !== 'OTHER') s += 50;
+  if (FORMATS_1D.includes(format)) s += 10;
+  return { code, score: s };
+}
+// ใบปะหน้า SPX มีกล่องดำ "MP" ติดชิดหัวบาร์โค้ด (ไม่มี quiet zone) ทำให้ตัวอ่านหาจุดเริ่มบาร์โค้ดไม่เจอ
+// วิธีแก้: หา "แถบดำที่กว้างผิดปกติ" (กว้างกว่าแท่งบาร์โค้ดมาก เช่น กล่อง MP / ขอบตาราง) แล้วทาเป็นสีขาว
+function fixQuietZones(cv) {
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  const w = cv.width, h = cv.height; const img = ctx.getImageData(0, 0, w, h); const d = img.data;
+  const lum = new Uint8Array(w), pre = new Float64Array(w + 1), starts = new Int32Array(h).fill(-1), strong = new Int32Array(h).fill(-1), paper = new Float32Array(h).fill(-1);
+  for (let y = 0; y < h; y++) {
+    let mn = 255, mx = 0, o = y * w * 4;
+    for (let x = 0; x < w; x++) { const v = (d[o + x * 4] * 3 + d[o + x * 4 + 1] * 5 + d[o + x * 4 + 2] * 2) / 10 | 0; lum[x] = v; if (v < mn) mn = v; if (v > mx) mx = v; }
+    if (mx - mn < 50) continue;
+    // threshold แบบเฉลี่ยเฉพาะที่ (ทนแสงไม่สม่ำเสมอ/เงา/บับเบิ้ลสะท้อนแสง)
+    pre[0] = 0; for (let x = 0; x < w; x++) pre[x + 1] = pre[x] + lum[x];
+    const R = Math.max(8, w >> 6), tg = mn + (mx - mn) * 0.4, runs = []; let st = -1;
+    for (let x = 0; x <= w; x++) {
+      let dark = false;
+      if (x < w) { const a = Math.max(0, x - R), b = Math.min(w, x + R + 1); dark = lum[x] < tg || lum[x] < (pre[b] - pre[a]) / (b - a) - 6; }
+      if (dark && st < 0) st = x; else if (!dark && st >= 0) { runs.push([st, x - st]); st = -1; }
+    }
+    if (runs.length < 12) continue; // แถวนี้ไม่มีลายบาร์โค้ด
+    const lens = runs.map(r => r[1]).sort((a, b) => a - b); const med = lens[lens.length >> 1];
+    const lim = Math.max(10, med * 6);
+    // หา "ช่วงที่เป็นลายบาร์โค้ด" = แท่งดำ/ช่องขาวแคบๆ ต่อกันยาวที่สุด แล้วทาขาวด้านซ้ายของช่วงนั้น (สร้าง quiet zone เทียม)
+    let best = null, cs = 0, cnt = 1;
+    for (let i = 1; i <= runs.length; i++) {
+      const ok = i < runs.length && runs[i][1] <= lim && runs[i - 1][1] <= lim && (runs[i][0] - (runs[i - 1][0] + runs[i - 1][1])) <= lim;
+      if (ok) cnt++; else { if (cnt >= 12 && (!best || cnt > best[2])) best = [runs[cs][0], runs[i - 1][0] + runs[i - 1][1], cnt, cs]; cs = i; cnt = 1; }
+    }
+    if (!best) continue;
+    starts[y] = best[0];
+    // ระดับ "สีพื้นกระดาษ" ของแถวนี้ = ค่าเฉลี่ยช่องว่างระหว่างแท่ง (ทาด้วยสีนี้ ไม่ใช่ขาวล้วน — ขาวจัดทำให้ตัวอ่านคำนวณ threshold เพี้ยน)
+    let sum = 0, n = 0; for (let x = best[0]; x < best[1]; x++) if (lum[x] > tg) { sum += lum[x]; n++; }
+    paper[y] = n ? sum / n : mx;
+    // แถวที่ "มีกล่องดำกว้างอยู่ชิดซ้ายของบาร์โค้ด" = หลักฐานชัดว่าขอบซ้ายจริงอยู่ตรงไหน
+    const pv = runs[best[3] - 1];
+    if (pv && pv[1] > lim && best[0] - (pv[0] + pv[1]) <= lim) strong[y] = best[0];
+  }
+  // ใช้ค่ามัธยฐานของแถวข้างเคียง (±6 แถว) ให้ขอบซ้ายเรียบสม่ำเสมอ แล้วทาขาวเฉพาะฝั่งซ้าย (ฝั่งที่ติดกล่องดำ)
+  for (let y = 0; y < h; y++) {
+    let near = []; const R2 = Math.max(30, h >> 4);
+    for (let k = Math.max(0, y - R2); k <= Math.min(h - 1, y + R2); k++) if (strong[k] >= 0) near.push(strong[k]);
+    if (near.length < 3) { near = []; for (let k = Math.max(0, y - 6); k <= Math.min(h - 1, y + 6); k++) if (starts[k] >= 0) near.push(starts[k]); if (near.length < 4) continue; }
+    near.sort((p, q) => p - q); const sx = near[near.length >> 1] - 2, o = y * w * 4;
+    let ps = 0, pn = 0; for (let k = Math.max(0, y - 8); k <= Math.min(h - 1, y + 8); k++) if (paper[k] >= 0) { ps += paper[k]; pn++; }
+    const pv = pn ? ps / pn : 200;
+    for (let x = 0; x < sx; x++) { const i = o + x * 4; d[i] = d[i + 1] = d[i + 2] = pv; }
+  }
+  ctx.putImageData(img, 0, 0); return cv;
+}
+function pickBest(results) {
+  let best = null;
+  results.forEach(r => { const x = scoreCode(r.rawValue, r.format); if (x.code && (!best || x.score > best.score)) best = { ...x, raw: r.rawValue, format: r.format }; });
+  return best;
 }
 
-// ---------- CAMERA ----------
 async function startLiveScanner() {
   ac();
   if (!window.isSecureContext) { $('cameraErrorMessage').textContent = 'กล้องสดต้องเปิดผ่าน HTTPS — ใช้ปืนยิง USB / พิมพ์เลข / โหมดถ่ายรูปแทนได้'; return; }
-  if (typeof Html5Qrcode === 'undefined') { $('cameraErrorMessage').textContent = 'โหลดตัวสแกนไม่สำเร็จ (ตรวจสอบอินเทอร์เน็ต)'; return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $('cameraErrorMessage').textContent = 'เบราว์เซอร์นี้ไม่รองรับกล้อง — เปิดด้วย Safari / Chrome (ถ้าเปิดจาก LINE ให้กด ⋯ > เปิดในเบราว์เซอร์)'; return; }
   setScanMode('live');
+  $('cameraErrorMessage').textContent = 'กำลังเปิดกล้อง...';
   try {
-    if (html5QrCode) { try { await html5QrCode.clear(); } catch (e) {} }
-    html5QrCode = new Html5Qrcode('reader', { formatsToSupport: getFormats(), verbose: false, experimentalFeatures: { useBarCodeDetectorIfSupported: true } });
-    const w = Math.min($('cameraViewportContainer').clientWidth - 30, 340);
-    const base = { fps: 12, qrbox: { width: w, height: Math.round(w * 0.5) }, aspectRatio: 1.333, disableFlip: true };
-    const onOk = text => onCodeDetected(text, 'camera');
-    // ลองเปิดกล้องหลังทีละวิธี เผื่อมือถือบางรุ่น (iPhone รุ่นเก่า / Android บางยี่ห้อ) ไม่รับค่าบางแบบ
-    const attempts = [
-      () => html5QrCode.start({ facingMode: 'environment' }, { ...base, videoConstraints: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 }, advanced: [{ focusMode: 'continuous' }] } }, onOk, () => {}),
-      () => html5QrCode.start({ facingMode: 'environment' }, base, onOk, () => {}),
-      () => html5QrCode.start({ facingMode: { exact: 'environment' } }, base, onOk, () => {}),
-      async () => {
-        const cams = await Html5Qrcode.getCameras();
-        if (!cams || !cams.length) throw new Error('ไม่พบกล้อง');
-        const back = cams.find(c => /back|rear|environment|หลัง/i.test(c.label) && !/ultra|wide|tele/i.test(c.label)) || cams.find(c => /back|rear|environment|หลัง/i.test(c.label)) || cams[cams.length - 1];
-        return html5QrCode.start(back.id, base, onOk, () => {});
-      }
+    const detP = getDetector(); // โหลดตัวอ่านพร้อมกับเปิดกล้อง
+    // ความละเอียดสูง = อ่านบาร์โค้ดแท่งเส้นเล็กได้ดีขึ้นมาก
+    const tries = [
+      { video: { facingMode: { exact: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false },
+      { video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false },
+      { video: { facingMode: 'environment' }, audio: false },
+      { video: true, audio: false },
     ];
-    let lastErr = null, started = false;
-    for (const a of attempts) {
-      try { await a(); started = true; break; }
-      catch (e) { lastErr = e; if (/Permission|NotAllowed/i.test(String(e))) break; try { await html5QrCode.stop(); } catch (_) {} }
+    let lastErr = null;
+    for (const c of tries) {
+      try { camStream = await navigator.mediaDevices.getUserMedia(c); break; }
+      catch (e) { lastErr = e; if (/NotAllowed|Permission|Security/i.test(e.name + e.message)) break; }
     }
-    if (!started) throw lastErr;
+    if (!camStream) throw lastErr || new Error('ไม่พบกล้อง');
+    const track = camStream.getVideoTracks()[0];
+    try { await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
+    const caps = (track.getCapabilities && track.getCapabilities()) || {};
+    $('btnTorch').classList.toggle('hidden', !caps.torch);
+    setupZoom(track, caps);
+    camVideo = document.createElement('video');
+    camVideo.setAttribute('playsinline', ''); camVideo.setAttribute('muted', ''); camVideo.muted = true; camVideo.autoplay = true;
+    camVideo.srcObject = camStream;
+    $('reader').innerHTML = ''; $('reader').appendChild(camVideo);
+    await camVideo.play();
     cameraRunning = true;
-    $('cameraInactiveUI').classList.add('hidden'); $('scannerOverlay').classList.add('hidden');
+    $('cameraInactiveUI').classList.add('hidden'); $('scannerOverlay').classList.remove('hidden');
     $('btnToggleCamera').textContent = '⏹ หยุดกล้อง'; $('btnToggleCamera').classList.replace('bg-indigo-600', 'bg-rose-600');
-    try { const caps = html5QrCode.getRunningTrackCapabilities(); $('btnTorch').classList.toggle('hidden', !caps.torch); } catch (e) {}
+    try { await detP; } catch (e) { showToast('โหลดตัวอ่านบาร์โค้ดไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต', 'red', 4000); }
+    $('engineInfo').textContent = `${camVideo.videoWidth}×${camVideo.videoHeight} • ${detectorEngine === 'native' ? 'ตัวอ่านของเครื่อง' : 'ZXing'}`;
+    scanLoop();
   } catch (err) {
-    cameraRunning = false;
-    $('cameraInactiveUI').classList.remove('hidden');
-    $('cameraErrorMessage').textContent = /Permission|NotAllowed/i.test(String(err)) ? 'ไม่ได้รับอนุญาตใช้กล้อง — ไปที่ตั้งค่าเบราว์เซอร์ > อนุญาตกล้อง แล้วลองใหม่' : 'เปิดกล้องไม่สำเร็จ: ' + String(err).slice(0, 120);
+    await stopLiveScanner();
+    $('cameraErrorMessage').textContent = /NotAllowed|Permission/i.test(String(err && (err.name + err.message)))
+      ? 'ไม่ได้รับอนุญาตใช้กล้อง — iPhone: ตั้งค่า > Safari > กล้อง > อนุญาต แล้วรีเฟรชหน้า'
+      : 'เปิดกล้องไม่สำเร็จ: ' + String(err && err.message || err).slice(0, 120);
   }
 }
+function scanLoop() {
+  clearTimeout(scanLoopTimer);
+  if (!cameraRunning) return;
+  scanLoopTimer = setTimeout(async () => {
+    if (!cameraRunning) return;
+    if (!scanBusy && detector && camVideo && camVideo.readyState >= 2 && $('alertOverlay').classList.contains('hidden')) {
+      scanBusy = true;
+      try {
+        const vw = camVideo.videoWidth, vh = camVideo.videoHeight; frameNo++;
+        // สลับ: เฟรมคู่ = แถบกลางจอ (บาร์โค้ดแท่ง ชัดและเร็ว), เฟรมคี่ = ทั้งภาพ (QR/บาร์โค้ดที่อยู่ขอบ)
+        let sx = 0, sy = 0, sw = vw, sh = vh, k;
+        const v = frameNo % 4; let fix = false;
+        if (v === 1 || v === 2) { // ครอปกลางจอ ความละเอียดเต็ม (ไม่ย่อ) → เส้นบาร์โค้ดเล็กๆ ยังคมชัด ; v=1 ซ่อม quiet zone (SPX กล่อง MP)
+          sx = Math.round(vw * 0.12); sw = Math.round(vw * 0.76); sy = Math.round(vh * 0.2); sh = Math.round(vh * 0.6); k = 1; fix = v === 1;
+        } else if (v === 3) { // ครอปแคบ + ขยาย 1.6 เท่า + ซ่อม quiet zone → บาร์โค้ดเส้นถี่ที่ถือไกลไปนิด
+          sx = Math.round(vw * 0.2); sw = Math.round(vw * 0.6); sy = Math.round(vh * 0.3); sh = Math.round(vh * 0.4); k = 1.6; fix = true;
+        } else k = Math.min(1, (detectorEngine === 'native' ? 1920 : 1600) / sw); // ทั้งภาพ (QR / บาร์โค้ดที่อยู่ขอบ)
+        scanCanvas.width = Math.round(sw * k); scanCanvas.height = Math.round(sh * k);
+        const ctx = scanCanvas.getContext('2d', { willReadFrequently: true });
+        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(camVideo, sx, sy, sw, sh, 0, 0, scanCanvas.width, scanCanvas.height);
+        if (fix) fixQuietZones(scanCanvas);
+        const res = await detector.detect(scanCanvas);
+        if (res && res.length) {
+          const best = pickBest(res);
+          if (best) onCodeDetected(best.code, 'camera', best.raw);
+          else if (Date.now() - lastBadToast > 2500) { lastBadToast = Date.now(); showToast('อ่านได้แต่ไม่ใช่เลขพัสดุ: ' + esc(String(res[0].rawValue).slice(0, 50)), 'amber', 2000); }
+        }
+      } catch (e) { /* frame error - ข้าม */ }
+      scanBusy = false;
+    }
+    scanLoop();
+  }, 60);
+}
+let lastBadToast = 0;
+function setupZoom(track, caps) {
+  const box = $('zoomBox');
+  if (!caps.zoom || !caps.zoom.max || caps.zoom.max <= 1) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  const z = $('zoomRange'); z.min = caps.zoom.min || 1; z.max = Math.min(caps.zoom.max, 5); z.step = caps.zoom.step || 0.1;
+  const start = Math.min(2, z.max); z.value = start;
+  track.applyConstraints({ advanced: [{ zoom: start }] }).catch(() => {});
+  z.oninput = () => track.applyConstraints({ advanced: [{ zoom: Number(z.value) }] }).catch(() => {});
+}
 async function stopLiveScanner() {
-  if (html5QrCode && cameraRunning) { try { await html5QrCode.stop(); } catch (e) {} }
-  cameraRunning = false; state.torchOn = false;
-  $('cameraInactiveUI').classList.remove('hidden'); $('btnTorch').classList.add('hidden');
+  cameraRunning = false; clearTimeout(scanLoopTimer); state.torchOn = false;
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  if (camVideo) { camVideo.srcObject = null; camVideo = null; }
+  $('reader').innerHTML = ''; $('engineInfo').textContent = '';
+  $('cameraInactiveUI').classList.remove('hidden'); $('scannerOverlay').classList.add('hidden');
+  $('btnTorch').classList.add('hidden'); $('zoomBox').classList.add('hidden');
   $('btnToggleCamera').textContent = '▶️ เริ่มกล้อง'; $('btnToggleCamera').classList.replace('bg-rose-600', 'bg-indigo-600');
 }
 function toggleCameraStream() { cameraRunning ? stopLiveScanner() : startLiveScanner(); }
 async function toggleTorch() {
-  if (!html5QrCode || !cameraRunning) return;
+  if (!camStream) return;
   state.torchOn = !state.torchOn;
-  try { await html5QrCode.applyVideoConstraints({ advanced: [{ torch: state.torchOn }] }); } catch (e) { showToast('อุปกรณ์นี้ไม่รองรับแฟลช', 'amber'); }
+  try { await camStream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: state.torchOn }] }); } catch (e) { showToast('อุปกรณ์นี้ไม่รองรับแฟลช', 'amber'); }
 }
 
 // ---------- PHOTO / OCR FALLBACK ----------
 let tesseractLoading = null;
 function loadTesseract() {
   if (window.Tesseract) return Promise.resolve();
-  if (!tesseractLoading) tesseractLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  if (!tesseractLoading) tesseractLoading = loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
   return tesseractLoading;
+}
+async function fileToCanvas(file, maxSide) {
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+  const cv = document.createElement('canvas'); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
+  cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height); return cv;
 }
 async function handleTagPhoto(input) {
   const file = input.files && input.files[0]; input.value = ''; if (!file) return;
   $('ocrLoading').classList.remove('hidden'); $('ocrStatusText').textContent = 'กำลังอ่านบาร์โค้ดจากภาพ...';
   try {
-    const tmp = new Html5Qrcode('reader', { formatsToSupport: getFormats(), verbose: false });
-    const txt = await tmp.scanFile(file, false); try { tmp.clear(); } catch (e) {}
-    $('ocrLoading').classList.add('hidden'); onCodeDetected(txt, 'photo'); return;
+    const det = await getDetector();
+    for (const [side, fix] of [[2400, false], [2400, true], [1400, true], [3600, true]]) {
+      const cv = await fileToCanvas(file, side); if (fix) fixQuietZones(cv);
+      const res = await det.detect(cv);
+      const best = res && res.length ? pickBest(res) : null;
+      if (best) { $('ocrLoading').classList.add('hidden'); onCodeDetected(best.code, 'photo', best.raw); return; }
+    }
   } catch (e) { /* ไม่เจอบาร์โค้ด → OCR */ }
   try {
     $('ocrStatusText').textContent = 'ไม่พบบาร์โค้ด กำลังอ่านตัวอักษร (OCR)...';
     await loadTesseract();
-    const r = await Tesseract.recognize(file, 'eng');
+    const r = await Tesseract.recognize(await fileToCanvas(file, 2400), 'eng');
     const raw = (r.data.text || '').toUpperCase().replace(/[ \t]/g, '');
     const cands = raw.match(/[A-Z]{2,5}\d[0-9A-Z]{7,20}|\d{10,16}/g) || [];
-    const hit = cands.find(c => state.master[c]) || cands[0];
+    const hit = cands.find(c => findInMaster(c)) || cands.find(c => guessCourierFromTracking(c) !== 'OTHER') || cands[0];
     $('ocrLoading').classList.add('hidden');
     if (hit) { showToast('🔎 OCR พบเลข: ' + hit, 'indigo'); onCodeDetected(hit, 'ocr'); }
-    else showToast('อ่านเลขพัสดุจากภาพไม่ได้ — ลองถ่ายใกล้ๆ ให้ชัด หรือพิมพ์เลขเอง', 'red', 3500);
+    else showToast('อ่านเลขพัสดุจากภาพไม่ได้ — ถ่ายให้บาร์โค้ดเต็มกรอบ ชัด ไม่สะท้อนแสง หรือพิมพ์เลขเอง', 'red', 3500);
   } catch (e) { $('ocrLoading').classList.add('hidden'); showToast('OCR ใช้งานไม่ได้ (ต้องต่ออินเทอร์เน็ตครั้งแรก)', 'red'); }
 }
 
@@ -811,27 +955,31 @@ document.addEventListener('keydown', e => {
 });
 
 // ---------- CODE PARSING ----------
+// ดัชนี เลขออเดอร์ → เลขพัสดุ (สแกนบาร์โค้ด/QR เลขออเดอร์บนใบปะหน้าก็หาเจอ)
+let orderIndex = {};
+function rebuildOrderIndex() { orderIndex = {}; Object.values(state.master).forEach(m => { if (m.orderNo) orderIndex[String(m.orderNo).toUpperCase().replace(/\s+/g, '')] = m.tracking; }); }
+function findInMaster(x) { if (!x) return null; if (state.master[x]) return x; if (orderIndex[x]) return orderIndex[x]; return null; }
 function extractTracking(raw) {
-  let t = String(raw || '').trim();
-  const up = t.toUpperCase().replace(/\s+/g, '');
-  if (state.master[up]) return up;
-  // QR อาจเป็น URL/JSON → หาเลขพัสดุที่อยู่ในฐานข้อมูล หรือรูปแบบเลขพัสดุ
-  const tokens = up.match(/[A-Z0-9-]{8,30}/g) || [];
-  const inMaster = tokens.find(x => state.master[x]); if (inMaster) return inMaster;
+  const up = String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
+  const direct = findInMaster(up); if (direct) return direct;
+  // QR อาจเป็น URL / JSON / ข้อความหลายช่อง → หาเลขพัสดุหรือเลขออเดอร์ที่อยู่ในไฟล์ก่อน
+  const tokens = up.match(/[A-Z0-9-]{6,40}/g) || [];
+  for (const t of tokens) { const f = findInMaster(t); if (f) return f; }
   if (/^[A-Z0-9-]{8,30}$/.test(up) && /\d{4}/.test(up)) return up;
-  const pat = tokens.find(x => /^[A-Z]{2,5}\d{6,}[A-Z0-9]*$/.test(x) || /^\d{10,16}$/.test(x));
+  const pat = tokens.find(x => guessCourierFromTracking(x) !== 'OTHER') || tokens.find(x => /^[A-Z]{2,5}\d{6,}[A-Z0-9]*$/.test(x) || /^\d{10,16}$/.test(x));
   return pat || null;
 }
 
-function onCodeDetected(raw, source) {
+function onCodeDetected(raw, source, rawFull) {
   const now = Date.now();
   const code = extractTracking(raw);
   if (!code) { if (source !== 'camera') { beepWarn(); showToast('⚠️ รหัสนี้ไม่ใช่เลขพัสดุ: ' + esc(String(raw).slice(0, 40)), 'red'); } return; }
   if (code === lastCode && now - lastCodeAt < 2500) return; // กันกล้องอ่านซ้ำรัว
-  lastCode = code; lastCodeAt = now;
+  lastCode = code; lastCodeAt = now; lastRaw = rawFull || raw;
   if (state.workflow === 'truck') return handleTruckScan(code);
   return handlePackScan(code);
 }
+let lastRaw = '';
 
 // ---------- PACK MODE ----------
 function buildRecord(code) {
@@ -840,8 +988,8 @@ function buildRecord(code) {
   return {
     tracking: code, orderNo: m ? m.orderNo : '', platform: m ? (m.platform || platformFromCourier(courier)) : platformFromCourier(courier),
     courier, items: m ? JSON.parse(JSON.stringify(m.items)) : [{ name: '', variant: '', qty: 1 }],
-    recipient: m ? m.recipient : '', destination: m ? m.destination : '', note: m ? m.note : '',
-    inMaster: !!m, date: dateKey(), time: new Date().toISOString(), loaded: null, handoverId: null
+    recipient: m ? m.recipient : '', destination: m ? m.destination : '', address: m ? (m.address || '') : '', note: m ? m.note : '',
+    inMaster: !!m, raw: String(lastRaw || '').slice(0, 300), date: dateKey(), time: new Date().toISOString(), loaded: null, handoverId: null
   };
 }
 function handlePackScan(code) {
@@ -904,8 +1052,18 @@ function renderResultCard() {
   }).join('');
   $('resBuyerNoteContainer').classList.toggle('hidden', !p.note); $('resBuyerNote').textContent = p.note || '';
   $('quickProductWrap').classList.toggle('hidden', p.inMaster);
+  const nb = $('notInMasterBox'); nb.classList.toggle('hidden', p.inMaster);
+  if (!p.inMaster) {
+    const n = Object.keys(state.master).length;
+    nb.innerHTML = (n === 0
+      ? '<b>📥 เครื่องนี้ยังไม่ได้โหลดไฟล์ออเดอร์</b><br>บาร์โค้ด/QR บนใบปะหน้ามีแค่ “เลขพัสดุ” ไม่มีชื่อสินค้าและที่อยู่ (PDPA) — ต้องโหลดไฟล์ Excel ออเดอร์ของวันนี้ที่แท็บ <b>ไฟล์ออเดอร์</b> ก่อน สินค้า/สี/จำนวน/ที่อยู่ จึงจะขึ้นอัตโนมัติ'
+      : `<b>⚠️ ไม่พบเลขนี้ในไฟล์ออเดอร์ (${n} ออเดอร์ในเครื่อง)</b><br>อาจเป็นออเดอร์ที่ยังไม่อยู่ในไฟล์ที่โหลด — ตรวจใบปะหน้า หรือโหลดไฟล์ล่าสุดอีกครั้ง`)
+      + (p.raw && p.raw.toUpperCase().replace(/\s+/g, '') !== p.tracking ? `<div class="mt-1 font-mono text-[10px] break-all text-slate-600">ข้อมูลที่อ่านได้: ${esc(p.raw)}</div>` : '')
+      + (n === 0 ? `<button onclick="switchTab('master')" class="mt-2 bg-indigo-600 text-white font-bold px-3 py-1.5 rounded-lg">📥 ไปโหลดไฟล์ออเดอร์</button>` : '');
+  }
   $('resRecipient').textContent = 'ผู้รับ: ' + (p.recipient || '-');
   $('resDestination').textContent = p.destination || '(ไม่มีข้อมูลปลายทาง — โหลดไฟล์ออเดอร์)';
+  $('resAddress').textContent = p.address || ''; $('resAddress').classList.toggle('hidden', !p.address || p.address === p.destination);
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 function renderQuickChips() {
@@ -1256,7 +1414,7 @@ async function handleMasterFileUpload(input) {
           const courier = normalizeCourier(courierRaw) || guessCourierFromTracking(t);
           const dest = [map.district ? row[map.district] : '', map.province ? row[map.province] : '', map.postcode ? row[map.postcode] : ''].filter(Boolean).join(' ') || (map.address ? String(row[map.address]).slice(-60) : '');
           if (!perTrack[t]) perTrack[t] = { tracking: t, orderNo: map.orderNo ? String(row[map.orderNo]) : '', platform: detectPlatform(f.name, headers, courier), courier, items: [],
-            recipient: map.recipient ? String(row[map.recipient]) : '', destination: dest, note: map.note ? String(row[map.note]).trim() : '', source: f.name };
+            recipient: map.recipient ? String(row[map.recipient]) : '', destination: dest, address: map.address ? String(row[map.address]).trim() : '', note: map.note ? String(row[map.note]).trim() : '', source: f.name };
           perTrack[t].items.push({ name: map.name ? String(row[map.name]).trim() : '', variant: map.variant ? String(row[map.variant]).trim() : '', qty: Math.max(1, parseInt(map.qty ? row[map.qty] : 1) || 1) });
         });
       }
@@ -1269,7 +1427,7 @@ async function handleMasterFileUpload(input) {
       if (!added) results[results.length - 1] = `⚠️ ${esc(f.name)}: ไม่พบคอลัมน์เลขพัสดุ / ไม่มีเลขพัสดุ`;
     } catch (e) { results.push(`❌ ${esc(f.name)}: อ่านไฟล์ไม่ได้ (${esc(e.message)})`); }
   }
-  persist(); refreshAll(); renderMasterOrderList();
+  rebuildOrderIndex(); persist(); refreshAll(); renderMasterOrderList();
   $('importResult').innerHTML = results.join('<br>'); $('importResult').classList.remove('hidden');
 }
 function renderMasterOrderList() {
@@ -1286,7 +1444,7 @@ function renderMasterOrderList() {
       <div class="flex items-center gap-1">${platformBadge(m.platform)} ${courierBadge(m.courier)} <span class="font-mono font-bold">${esc(m.tracking)}</span>${packed.has(m.tracking) ? '<span class="ml-auto text-emerald-600 font-bold">✓ แพ็คแล้ว</span>' : ''}</div>
       <p class="font-semibold mt-0.5">${esc(itemsText(m.items))}</p><p class="text-[11px] text-slate-500">${esc(m.recipient)} • ${esc(m.destination)}</p></div>`).join('') || '<p class="text-center text-slate-400 py-4 text-xs">ยังไม่มีออเดอร์ — โหลดไฟล์ Excel หรือกด “โหลดข้อมูลทดลอง”</p>';
 }
-function clearMasterData() { if (!confirm('ล้างไฟล์ออเดอร์ทั้งหมด? (ประวัติการแพ็คยังอยู่)')) return; state.master = {}; persist(); refreshAll(); renderMasterOrderList(); }
+function clearMasterData() { if (!confirm('ล้างไฟล์ออเดอร์ทั้งหมด? (ประวัติการแพ็คยังอยู่)')) return; state.master = {}; rebuildOrderIndex(); persist(); refreshAll(); renderMasterOrderList(); }
 function loadDemoData() {
   const demo = [
     ['TH2647129015684', '2610096JQVAHTS', 'Shopee', 'SPX', 'PST กล่องพลาสติกเก็บของอเนกประสงค์ 70 ลิตร ฝาหน้า', 'สีม่วง', 2, 'คุณสมชาย', 'บึงกุ่ม กรุงเทพมหานคร 10230', 'ขอกล่องแน่นๆ'],
@@ -1302,7 +1460,7 @@ function loadDemoData() {
   ];
   demo.forEach(([t, o, p, c, n, v, q, r, d, note]) => { state.master[t] = { tracking: t, orderNo: o, platform: p, courier: c, items: [{ name: n, variant: v, qty: q }], recipient: r, destination: d, note, source: 'demo' }; });
   state.master['TH2647129015684'].items.push({ name: 'PST เก้าอี้บันไดพลาสติกเพชรสยาม 2 ชั้น', variant: 'สีดำ', qty: 1 });
-  persist(); refreshAll(); renderMasterOrderList();
+  rebuildOrderIndex(); persist(); refreshAll(); renderMasterOrderList();
   $('importResult').innerHTML = '🧪 โหลดข้อมูลทดลอง 10 ออเดอร์แล้ว — ลองพิมพ์เลข <b class="font-mono">TH2647129015684</b> หรือ <b class="font-mono">812345678901</b> ในแท็บสแกน';
   $('importResult').classList.remove('hidden');
 }
@@ -1335,7 +1493,7 @@ function refreshAll() {
   state.scans = state.scans.filter(s => s.date >= cut); state.handovers = state.handovers.filter(h => h.date >= cut);
   // รูปส่งมอบเก็บแค่ 7 วัน (ประหยัดพื้นที่)
   const cutP = dateKey(new Date(Date.now() - 7 * 864e5)); state.handovers.forEach(h => { if (h.date < cutP) h.photo = null; });
-  fillCourierSelects(); renderQuickChips(); loadSettingsUI();
+  rebuildOrderIndex(); fillCourierSelects(); renderQuickChips(); loadSettingsUI();
   state.truckTarget = localStorage.getItem('psp_truck') || 'SPX'; $('truckTargetCourierSelect').value = state.truckTarget;
   setWorkflowMode('pack'); setScanMode('live'); setBarcodeFormatMode('all'); switchTab('scan');
   if (!window.isSecureContext && location.protocol === 'http:') {
