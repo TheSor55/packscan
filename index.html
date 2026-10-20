@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#4338ca">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PackScan">
+  <title>PackScan Pro - ระบบสแกนแพ็ค & ส่งมอบขนส่ง (เพชรสยาม)</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Tesseract OCR โหลดเฉพาะตอนใช้งาน (lazy) เพื่อประหยัดเน็ตมือถือ -->
+
+  <style>
+    body { font-family: 'Prompt', sans-serif; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    #cameraViewportContainer { position: relative; background: #000; min-height: 260px; border-radius: .75rem; overflow: hidden; }
+    #reader { width: 100% !important; min-height: 260px; border: none !important; }
+    #reader video { width: 100% !important; min-height: 260px; object-fit: cover !important; border-radius: .75rem; }
+    #reader img[alt="Info icon"], #reader__dashboard_section_csr span { display:none !important; }
+    .scanner-laser { position:absolute; left:8%; right:8%; height:2px; background:#ef4444; box-shadow:0 0 10px #ef4444,0 0 20px #ef4444; animation: scanLaser 2s infinite ease-in-out; }
+    @keyframes scanLaser { 0%,100%{top:12%} 50%{top:88%} }
+    @keyframes flashRed { 0%,100%{background:#dc2626} 50%{background:#7f1d1d} }
+    .flash-red { animation: flashRed .35s infinite; }
+    @keyframes popIn { from{transform:scale(.85);opacity:0} to{transform:scale(1);opacity:1} }
+    .pop-in { animation: popIn .18s ease-out; }
+    .swatch { display:inline-block; width:1.1em; height:1.1em; border-radius:9999px; border:2px solid rgba(0,0,0,.35); vertical-align:-0.15em; }
+    .no-scrollbar::-webkit-scrollbar{display:none}
+
+    /* ===== Print: Big Tag ===== */
+    #printArea { display:none; }
+    @media print {
+      @page { size: A5 landscape; margin: 6mm; }
+      body { background:#fff !important; padding:0 !important; }
+      body > *:not(#printArea) { display:none !important; }
+      #printArea { display:block !important; }
+      .bt-page { overflow:hidden; page-break-after: always; break-after: page; height: 134mm; border: 2.5mm solid #000; border-radius: 4mm; padding: 5mm 6mm; box-sizing: border-box; display:flex; flex-direction:column; font-family:'Prompt',sans-serif; color:#000; }
+      .bt-page:last-child { page-break-after: auto; break-after: auto; }
+      .bt-head { display:flex; justify-content:space-between; align-items:center; border-bottom: 1.2mm solid #000; padding-bottom: 2mm; }
+      .bt-courier { font-size: 30pt; font-weight: 900; background:#000; color:#fff; padding: 0 4mm; border-radius: 2mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .bt-platform { font-size: 20pt; font-weight: 800; }
+      .bt-label { font-size: 11pt; color:#333; margin-top: 2mm; }
+      .bt-product { font-size: 34pt; font-weight: 900; line-height: 1.12; }
+      .bt-row { display:flex; justify-content:space-between; align-items:flex-end; margin-top:auto; gap: 4mm; }
+      .bt-variant { font-size: 26pt; font-weight: 900; border: 1mm solid #000; padding: 0 3mm; border-radius: 2mm; }
+      .bt-qty { font-size: 54pt; font-weight: 900; line-height: 1; }
+      .bt-dest { font-size: 22pt; font-weight: 800; margin-top: 2mm; }
+      .bt-foot { display:flex; justify-content:space-between; font-family: monospace; font-size: 13pt; border-top: .6mm solid #000; margin-top: 2mm; padding-top: 1mm; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col pb-24">
+
+  <!-- ===== HEADER ===== -->
+  <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-30 px-4 py-2.5">
+    <div class="max-w-md mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <div class="bg-white/20 p-2 rounded-xl">
+          <svg class="w-6 h-6 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+        </div>
+        <div>
+          <h1 class="text-base font-bold leading-tight flex items-center gap-1.5">PackScan Pro <span class="text-[10px] bg-emerald-500 font-bold px-1.5 rounded">Hybrid</span></h1>
+          <p class="text-[11px] text-indigo-200">เพชรสยาม (PST) • แพ็ค • ขึ้นรถ • ส่งมอบ</p>
+        </div>
+      </div>
+      <div class="text-right">
+        <span class="text-[10px] text-indigo-200 block">วันนี้แพ็คแล้ว</span>
+        <div class="flex items-baseline justify-end gap-1">
+          <span id="headerTotalBadge" class="text-2xl font-black text-yellow-300 leading-none">0</span>
+          <span class="text-xs text-indigo-200">กล่อง</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto w-full px-4 pt-3 flex-1">
+
+    <!-- ================= TAB 1: SCAN ================= -->
+    <section id="tab-scan" class="tab-content space-y-3">
+
+      <div class="grid grid-cols-4 gap-2">
+        <div class="bg-white p-2 rounded-xl shadow-sm text-center border-b-2 border-indigo-500"><span class="text-[10px] text-slate-500 block">รวม</span><span id="statTotal" class="text-xl font-bold text-indigo-600">0</span></div>
+        <div class="bg-white p-2 rounded-xl shadow-sm text-center border-b-2 border-orange-500"><span class="text-[10px] text-slate-500 block">Shopee</span><span id="statShopee" class="text-lg font-bold text-orange-500">0</span></div>
+        <div class="bg-white p-2 rounded-xl shadow-sm text-center border-b-2 border-blue-500"><span class="text-[10px] text-slate-500 block">Lazada</span><span id="statLazada" class="text-lg font-bold text-blue-600">0</span></div>
+        <div class="bg-white p-2 rounded-xl shadow-sm text-center border-b-2 border-slate-700"><span class="text-[10px] text-slate-500 block">TikTok</span><span id="statTiktok" class="text-lg font-bold text-slate-800">0</span></div>
+      </div>
+
+      <!-- WORKFLOW MODE -->
+      <div class="grid grid-cols-2 gap-2">
+        <button id="btnWorkflowPack" onclick="setWorkflowMode('pack')" class="py-3 rounded-xl font-bold text-sm shadow-sm transition">📦 สแกนแพ็คสินค้า</button>
+        <button id="btnWorkflowTruck" onclick="setWorkflowMode('truck')" class="py-3 rounded-xl font-bold text-sm shadow-sm transition">🚚 ตรวจเช็คขึ้นรถ</button>
+      </div>
+
+      <!-- TRUCK PANEL -->
+      <div id="truckPanel" class="hidden bg-amber-500 text-white p-3 rounded-xl shadow space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-bold text-sm">🚛 กำลังโหลดขึ้นรถ:</span>
+          <select id="truckTargetCourierSelect" onchange="changeTruckTargetCourier(this.value)" class="flex-1 text-slate-800 text-sm p-1.5 rounded-lg bg-white font-bold"></select>
+        </div>
+        <div class="bg-white/95 text-slate-800 rounded-lg p-2 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] text-slate-500 block">ขึ้นรถแล้ว / แพ็คแล้ว (ขนส่งนี้)</span>
+            <span class="text-2xl font-black"><span id="truckLoadedCount" class="text-emerald-600">0</span> <span class="text-slate-400">/</span> <span id="truckPackedCount">0</span></span>
+          </div>
+          <button onclick="showMissingForCourier(state.truckTarget)" class="text-xs bg-amber-100 border border-amber-300 text-amber-900 font-bold px-2.5 py-1.5 rounded-lg">📋 ดูกล่องที่ยังไม่ขึ้นรถ</button>
+        </div>
+      </div>
+
+      <!-- HTTPS warning -->
+      <div id="httpsWarningBanner" class="hidden bg-amber-500 text-white p-3 rounded-2xl shadow-md text-xs">
+        <b>🔒 กล้องสดต้องเปิดผ่าน HTTPS</b>
+        <p class="text-amber-100 mt-0.5">Safari / Chrome บนมือถืออนุญาตกล้องเฉพาะเว็บ https:// เท่านั้น (ยังใช้ปืนยิง USB / พิมพ์เลข / ถ่ายรูปได้ตามปกติ)</p>
+        <a id="httpsRedirectBtn" href="#" class="mt-2 inline-block bg-white text-slate-900 font-bold px-3 py-1.5 rounded-xl">👉 เปิดผ่าน HTTPS</a>
+      </div>
+
+      <!-- SCANNER BOX -->
+      <div class="bg-white rounded-2xl shadow-sm p-3 border border-slate-200">
+        <div class="flex items-center justify-between mb-2 gap-2">
+          <div class="flex gap-1 bg-slate-100 p-1 rounded-lg text-xs font-medium">
+            <button id="btnModeLive" onclick="setScanMode('live')" class="px-2.5 py-1 rounded-md">📷 กล้องสด</button>
+            <button id="btnModeSnap" onclick="setScanMode('snap')" class="px-2.5 py-1 rounded-md">📸 ถ่ายรูป</button>
+          </div>
+          <div class="flex gap-1">
+            <button id="btnTorch" onclick="toggleTorch()" class="hidden bg-slate-100 px-2 py-1.5 rounded-lg text-xs">💡 แฟลช</button>
+            <button id="btnToggleCamera" onclick="toggleCameraStream()" class="bg-indigo-600 active:scale-95 text-white font-bold px-3 py-1.5 rounded-lg shadow-sm text-xs">▶️ เริ่มกล้อง</button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mb-2 bg-indigo-50/70 p-1.5 rounded-xl border border-indigo-100 text-[11px]">
+          <span class="font-bold text-indigo-900">🎯 อ่าน:</span>
+          <div class="flex gap-1">
+            <button id="btnFormatAll" onclick="setBarcodeFormatMode('all')" class="px-2 py-1 rounded-lg">✨ ทั้งหมด</button>
+            <button id="btnFormat1D" onclick="setBarcodeFormatMode('1d')" class="px-2 py-1 rounded-lg">🏷️ บาร์โค้ดแท่ง</button>
+            <button id="btnFormatQR" onclick="setBarcodeFormatMode('qr')" class="px-2 py-1 rounded-lg">🔲 QR</button>
+          </div>
+        </div>
+
+        <div id="cameraViewportContainer">
+          <div id="reader"></div>
+          <div id="scannerOverlay" class="hidden absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
+            <div class="w-72 h-36 border-2 border-indigo-300/80 rounded-xl relative"><div class="scanner-laser"></div></div>
+            <p class="text-white/90 text-xs mt-3 bg-black/60 px-3 py-1 rounded-full">จ่อบาร์โค้ดเลขพัสดุบนใบปะหน้า</p>
+          </div>
+          <div id="cameraInactiveUI" class="absolute inset-0 bg-slate-900 text-white flex flex-col items-center justify-center p-4 text-center z-20">
+            <p class="font-bold text-sm">กล้องยังไม่ได้เริ่มทำงาน</p>
+            <p id="cameraErrorMessage" class="text-xs text-slate-300 mt-1 mb-3">แตะเพื่อเปิดกล้องหลัง หรือใช้ปืนยิงบาร์โค้ด USB ได้ทันที</p>
+            <button onclick="startLiveScanner()" class="bg-indigo-600 active:scale-95 text-white font-bold py-3 px-6 rounded-xl shadow-lg text-sm">📷 แตะเพื่อเปิดกล้องหลัง</button>
+          </div>
+          <div id="snapModeUI" class="hidden absolute inset-0 bg-slate-800 text-white flex flex-col items-center justify-center p-4 text-center z-20">
+            <p class="font-bold text-sm mb-1">ถ่ายภาพใบปะหน้า (บาร์โค้ด → OCR สำรอง)</p>
+            <p class="text-[11px] text-slate-300 mb-3">ใช้เมื่อบาร์โค้ดยับ/สะท้อนแสง สแกนสดไม่ติด</p>
+            <label class="bg-indigo-600 active:scale-95 text-white font-bold py-3 px-4 rounded-xl cursor-pointer shadow text-sm">📸 ถ่ายภาพใบปะหน้า (กล้องหลัง)
+              <input type="file" accept="image/*" capture="environment" class="hidden" onchange="handleTagPhoto(this)">
+            </label>
+            <label class="mt-2 bg-white/10 text-slate-200 py-1.5 px-3 rounded-xl cursor-pointer text-[11px]">🖼️ เลือกจากอัลบั้ม
+              <input type="file" accept="image/*" class="hidden" onchange="handleTagPhoto(this)">
+            </label>
+            <div id="ocrLoading" class="hidden mt-3 text-xs text-yellow-300 flex items-center gap-2">
+              <div class="animate-spin rounded-full h-4 w-4 border-2 border-yellow-300 border-t-transparent"></div>
+              <span id="ocrStatusText">กำลังอ่าน...</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-2 flex gap-2">
+          <input type="text" id="manualInput" inputmode="text" autocomplete="off" autocapitalize="characters" placeholder="ยิงปืน USB / พิมพ์เลขพัสดุ แล้วกด Enter"
+                 class="flex-1 bg-slate-50 border border-slate-300 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 font-mono">
+          <button onclick="handleManualSubmit()" class="bg-slate-700 text-white text-sm px-4 rounded-lg font-bold">ตกลง</button>
+        </div>
+        <p class="text-[10px] text-slate-400 mt-1">⌨️ ปืนยิงบาร์โค้ด USB/Bluetooth ยิงได้เลยทุกหน้าจอ ไม่ต้องคลิกช่องพิมพ์</p>
+      </div>
+
+      <!-- RESULT CARD (PACK MODE) -->
+      <div id="resultCard" class="hidden bg-white rounded-2xl shadow-lg border-4 overflow-hidden pop-in">
+        <div id="resultCardHeader" class="px-4 py-2.5 flex items-center justify-between text-white">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span id="badgePlatform" class="px-2 py-0.5 rounded text-xs font-black bg-white">Shopee</span>
+            <span id="badgeCourier" class="text-xs font-bold bg-black/25 px-2 py-0.5 rounded">SPX</span>
+            <span id="badgeMatched" class="text-[11px] font-bold px-1.5 py-0.5 rounded"></span>
+          </div>
+          <span id="scanTimestamp" class="text-[11px] opacity-90"></span>
+        </div>
+        <div class="p-3 space-y-2.5">
+          <div class="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2 rounded-lg">
+            <div><span class="text-slate-400 block text-[10px]">เลขพัสดุ</span><span id="resTracking" class="font-bold font-mono break-all">-</span></div>
+            <div><span class="text-slate-400 block text-[10px]">เลขออเดอร์</span><span id="resOrderNo" class="font-bold font-mono break-all">-</span></div>
+          </div>
+
+          <div class="bg-amber-50 border-2 border-amber-400 p-2.5 rounded-xl">
+            <div class="flex items-center justify-between text-amber-900 text-xs font-bold mb-1.5">
+              <span>📦 สินค้าที่ต้องอยู่ในกล่อง — ตรวจให้ตรง!</span>
+              <span id="resTotalQty" class="bg-amber-600 text-white px-2 py-0.5 rounded-full">1 ชิ้น</span>
+            </div>
+            <div id="resItemsContainer" class="space-y-2"></div>
+            <div id="resBuyerNoteContainer" class="hidden mt-2 p-2 bg-rose-100 border border-rose-300 rounded-lg text-sm text-rose-700 font-bold">💬 ลูกค้าแจ้ง: <span id="resBuyerNote"></span></div>
+            <div id="quickProductWrap" class="hidden mt-2 pt-2 border-t border-amber-200">
+              <span class="text-[10px] text-amber-800 font-bold block mb-1">⚡ ไม่พบในไฟล์ออเดอร์ — เลือกสินค้าด่วน:</span>
+              <div id="quickProductChips" class="flex flex-wrap gap-1"></div>
+            </div>
+          </div>
+
+          <div class="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
+            <span class="text-emerald-800 text-[11px] font-semibold">📍 จัดส่งไปที่:</span>
+            <p id="resRecipient" class="text-xs font-medium text-slate-800">-</p>
+            <p id="resDestination" class="text-base font-black text-emerald-900 leading-tight">-</p>
+          </div>
+
+          <div class="grid grid-cols-4 gap-2 pt-1">
+            <button onclick="confirmCurrentScan()" class="col-span-2 bg-emerald-600 active:bg-emerald-800 text-white py-3.5 rounded-xl font-black text-base shadow">✅ ยืนยันแพ็ค</button>
+            <button onclick="editCurrentScan()" class="bg-slate-100 text-slate-700 py-3 rounded-xl text-xs font-semibold">✏️ แก้ไข</button>
+            <button onclick="openBigTagModal()" class="bg-indigo-50 border border-indigo-200 text-indigo-700 py-3 rounded-xl text-xs font-bold">🏷️ Big Tag</button>
+          </div>
+          <button onclick="discardCurrentScan()" class="w-full text-[11px] text-slate-400 underline">ยกเลิกกล่องนี้ (ไม่บันทึก)</button>
+        </div>
+      </div>
+
+      <div id="lastTruckResult" class="hidden"></div>
+
+      <div class="bg-white rounded-xl p-3 border border-slate-200 text-[11px] text-slate-500 leading-relaxed">
+        <p class="font-bold text-slate-700 text-xs mb-0.5">💡 วิธีใช้งานให้แม่นยำ</p>
+        • โหลดไฟล์ออเดอร์ (Excel) ทุกเช้าที่แท็บ <b>ไฟล์ออเดอร์</b> — สแกนแล้วสินค้า/สี/จำนวนจะขึ้นทันที<br>
+        • ห้ามติดเทปใสทับแท่งบาร์โค้ด (สะท้อนแสง สแกนไม่ติด)<br>
+        • สินค้าชิ้นใหญ่พันบับเบิ้ล กด <b>Big Tag</b> พิมพ์ป้ายตัวโตแปะข้างกล่อง
+      </div>
+    </section>
+
+    <!-- ================= TAB 2: LIST ================= -->
+    <section id="tab-list" class="tab-content hidden space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold">รายการที่แพ็ควันนี้</h2>
+          <p class="text-xs text-slate-500" id="listDateSubtext"></p>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button onclick="printAllBigTags()" class="text-[11px] text-indigo-700 font-bold bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-lg">🏷️ พิมพ์ Tag ทั้งหมด</button>
+          <button onclick="clearTodayData()" class="text-[11px] text-rose-500 font-medium">ล้างวันนี้</button>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <input type="text" id="searchListInput" oninput="renderScanList()" placeholder="🔍 เลขพัสดุ / สินค้า / ผู้รับ..." class="flex-1 min-w-0 bg-white border border-slate-300 text-xs rounded-xl px-3 py-2">
+        <select id="filterPlatform" onchange="renderScanList()" class="bg-white border border-slate-300 text-xs rounded-xl px-2">
+          <option value="ALL">ทุกช่องทาง</option><option>Shopee</option><option>Lazada</option><option>TikTok</option><option value="Other">อื่นๆ</option>
+        </select>
+        <select id="filterLoaded" onchange="renderScanList()" class="bg-white border border-slate-300 text-xs rounded-xl px-2">
+          <option value="ALL">ทั้งหมด</option><option value="NOT">ยังไม่ขึ้นรถ</option><option value="LOADED">ขึ้นรถแล้ว</option>
+        </select>
+      </div>
+      <div id="scannedListContainer" class="space-y-2 pb-6"></div>
+    </section>
+
+    <!-- ================= TAB 3: HANDOVER ================= -->
+    <section id="tab-handover" class="tab-content hidden space-y-3">
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+        <h2 class="text-base font-bold flex items-center">🚚 ส่งมอบขนส่ง (Proof of Handover)</h2>
+        <p class="text-xs text-slate-500">ตัดรอบส่งมอบ เทียบยอดกับคนขับ พร้อมรูปหลักฐาน แล้วส่งสรุปเข้า LINE</p>
+
+        <div>
+          <label class="text-xs font-semibold block mb-1">บริษัทขนส่งที่เข้ามารับ:</label>
+          <select id="handoverCourierSelect" onchange="updateHandoverPreview()" class="w-full bg-slate-50 border border-slate-300 text-sm rounded-xl p-2.5 font-bold"></select>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-2"><span class="text-[10px] text-indigo-700 block">แพ็คแล้ว (รอส่งรอบนี้)</span><span id="hoPacked" class="text-2xl font-black text-indigo-900">0</span></div>
+          <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-2"><span class="text-[10px] text-emerald-700 block">สแกนขึ้นรถแล้ว</span><span id="hoLoaded" class="text-2xl font-black text-emerald-700">0</span></div>
+          <div class="bg-rose-50 border border-rose-200 rounded-xl p-2"><span class="text-[10px] text-rose-700 block">ค้าง/ยังไม่ขึ้น</span><span id="hoMissing" class="text-2xl font-black text-rose-600">0</span></div>
+        </div>
+        <div id="hoMissingList" class="hidden text-[11px] bg-rose-50 border border-rose-200 rounded-xl p-2 max-h-40 overflow-y-auto font-mono"></div>
+
+        <div>
+          <label class="text-xs font-semibold block mb-1">ยอดที่คนขับนับรับจริง (กล่อง):</label>
+          <input type="number" id="handoverDriverCount" inputmode="numeric" placeholder="ใส่ยอดที่คนขับนับ เพื่อเทียบยอด" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-sm font-bold" oninput="updateHandoverPreview()">
+          <p id="hoDiffText" class="text-xs mt-1 font-bold"></p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div><label class="text-slate-600 block mb-1">ทะเบียนรถ:</label><input type="text" id="handoverPlate" placeholder="70-2816 กทม." class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-bold"></div>
+          <div><label class="text-slate-600 block mb-1">คนขับ / เบอร์:</label><input type="text" id="handoverDriver" placeholder="ชื่อ / เบอร์โทร" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2"></div>
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold block mb-1">📸 รูปท้ายรถ / ทะเบียน:</label>
+          <div class="flex items-center gap-2">
+            <label class="flex-1 bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl p-3 text-center cursor-pointer">
+              <span class="text-xs font-bold text-indigo-700">กดเปิดกล้องถ่ายรูปรถรับของ</span>
+              <input type="file" id="truckPhotoInput" accept="image/*" capture="environment" class="hidden" onchange="handleTruckPhoto(this)">
+            </label>
+            <div id="truckPhotoPreview" class="hidden w-20 h-20 rounded-xl border overflow-hidden"><img id="truckPhotoImg" class="w-full h-full object-cover"></div>
+          </div>
+        </div>
+
+        <button onclick="saveAndShareHandover()" class="w-full bg-[#06C755] text-white py-3.5 rounded-xl font-bold text-sm shadow">💾 ตัดรอบส่งมอบ & ส่งสรุปเข้า LINE</button>
+
+        <div class="pt-3 border-t border-slate-200">
+          <p class="text-xs font-bold mb-2">ประวัติการส่งมอบวันนี้:</p>
+          <div id="handoverHistoryContainer" class="space-y-2 text-xs"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= TAB 4: REPORT ================= -->
+    <section id="tab-report" class="tab-content hidden space-y-3">
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-bold">📊 สรุปยอดประจำวัน</h2>
+          <select id="reportDateSelect" onchange="renderReport()" class="text-xs border border-slate-300 rounded-lg p-1.5 bg-slate-50"></select>
+        </div>
+        <div class="bg-gradient-to-r from-indigo-700 to-indigo-900 text-white p-4 rounded-xl shadow">
+          <p class="text-xs text-indigo-200">ยอดแพ็ครวม</p>
+          <div class="flex items-baseline gap-2 mt-1"><span id="repTotalNumber" class="text-4xl font-extrabold text-yellow-300">0</span><span class="text-sm text-indigo-200">กล่อง • <span id="repTotalPieces">0</span> ชิ้น</span></div>
+          <div class="mt-3 pt-3 border-t border-indigo-600/60 grid grid-cols-4 gap-2 text-center text-xs">
+            <div><span class="text-indigo-200 block text-[10px]">Shopee</span><span id="repShopeeCount" class="font-bold text-base">0</span></div>
+            <div><span class="text-indigo-200 block text-[10px]">Lazada</span><span id="repLazadaCount" class="font-bold text-base">0</span></div>
+            <div><span class="text-indigo-200 block text-[10px]">TikTok</span><span id="repTiktokCount" class="font-bold text-base">0</span></div>
+            <div><span class="text-indigo-200 block text-[10px]">อื่นๆ</span><span id="repOtherCount" class="font-bold text-base">0</span></div>
+          </div>
+        </div>
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <p class="text-xs font-semibold mb-2">แยกตามขนส่ง (แพ็ค / ขึ้นรถ / ส่งมอบ):</p>
+          <div id="courierBreakdownList" class="space-y-1 text-xs"></div>
+        </div>
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <p class="text-xs font-semibold mb-2">สินค้าที่แพ็ค (Top):</p>
+          <div id="productBreakdownList" class="space-y-1 text-xs"></div>
+        </div>
+        <div id="pendingMasterBox" class="hidden bg-rose-50 p-3 rounded-xl border border-rose-200 text-xs"></div>
+        <div class="space-y-2 pt-1">
+          <button onclick="shareReportToLine()" class="w-full bg-[#06C755] text-white py-3 rounded-xl font-bold text-sm shadow">📤 ส่งสรุปยอดเข้า LINE กลุ่ม</button>
+          <button onclick="exportToCSV()" class="w-full bg-slate-800 text-white py-3 rounded-xl font-bold text-sm shadow">⬇️ ดาวน์โหลด CSV (เปิดใน Excel)</button>
+          <button onclick="copySummaryText()" class="w-full bg-slate-100 text-slate-700 py-2.5 rounded-xl font-semibold text-xs">📋 คัดลอกข้อความสรุป</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= TAB 5: MASTER ================= -->
+    <section id="tab-master" class="tab-content hidden space-y-3">
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+        <div>
+          <h2 class="text-base font-bold">📥 ไฟล์ออเดอร์ประจำวัน</h2>
+          <p class="text-xs text-slate-500 mt-0.5">โหลด Excel/CSV จาก Shopee / TikTok / Lazada ครั้งเดียวตอนเช้า ข้อมูลเก็บในเครื่อง ใช้ได้แม้เน็ตหลุด</p>
+        </div>
+        <div class="bg-indigo-50 border border-indigo-200 p-3 rounded-xl space-y-2">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-xs text-indigo-700 block">ออเดอร์ในระบบ (พร้อมสแกน)</span>
+              <span id="masterOrderCount" class="text-3xl font-black text-indigo-900">0</span>
+            </div>
+            <div class="flex flex-col gap-1 items-end">
+              <button onclick="loadDemoData()" class="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-lg font-semibold shadow">🧪 โหลดข้อมูลทดลอง</button>
+              <button onclick="clearMasterData()" class="text-[11px] text-rose-500 font-medium">🗑️ ล้างทั้งหมด</button>
+            </div>
+          </div>
+          <div class="pt-2 border-t border-indigo-200/60 grid grid-cols-3 gap-1.5 text-center text-xs">
+            <div class="bg-white/80 py-1 rounded-lg"><span class="text-[10px] text-orange-600 block font-bold">Shopee</span><span id="masterShopeeCount" class="font-black">0</span></div>
+            <div class="bg-white/80 py-1 rounded-lg"><span class="text-[10px] text-slate-700 block font-bold">TikTok</span><span id="masterTiktokCount" class="font-black">0</span></div>
+            <div class="bg-white/80 py-1 rounded-lg"><span class="text-[10px] text-blue-600 block font-bold">Lazada</span><span id="masterLazadaCount" class="font-black">0</span></div>
+          </div>
+        </div>
+
+        <label for="orderFileInput" class="block border-2 border-dashed border-indigo-300 bg-indigo-50/30 rounded-xl p-4 text-center cursor-pointer">
+          <input type="file" id="orderFileInput" accept=".xlsx,.xls,.csv" multiple class="hidden" onchange="handleMasterFileUpload(this)">
+          <p class="text-sm font-bold text-indigo-700">➕ เลือกไฟล์ Excel/CSV (หลายไฟล์พร้อมกันได้)</p>
+          <p class="text-[11px] text-slate-500 mt-1">ระบบจับคอลัมน์อัตโนมัติ: เลขพัสดุ, ออเดอร์, ชื่อสินค้า, ตัวเลือก(สี), จำนวน, ผู้รับ, จังหวัด, ขนส่ง<br>ออเดอร์เดิมไม่หาย — เพิ่มสะสม / อัปเดตทับเลขพัสดุเดิม</p>
+        </label>
+        <div id="importResult" class="hidden text-xs bg-emerald-50 border border-emerald-200 rounded-xl p-2"></div>
+
+        <div class="pt-2 border-t border-slate-100 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold">📋 ออเดอร์ในฐานข้อมูล</span>
+            <span id="masterSearchCount" class="text-[11px] text-slate-400"></span>
+          </div>
+          <div class="flex gap-2">
+            <input type="text" id="searchMasterInput" oninput="renderMasterOrderList()" placeholder="🔍 เลขพัสดุ / ออเดอร์ / สินค้า..." class="flex-1 min-w-0 text-xs p-2.5 rounded-xl border border-slate-300 bg-slate-50">
+            <select id="filterMasterPlatform" onchange="renderMasterOrderList()" class="text-xs p-2 rounded-xl border border-slate-300 bg-slate-50">
+              <option value="ALL">ทั้งหมด</option><option>Shopee</option><option>TikTok</option><option>Lazada</option>
+            </select>
+          </div>
+          <div id="masterOrdersListContainer" class="space-y-2 max-h-80 overflow-y-auto pr-1"></div>
+        </div>
+
+        <details class="pt-2 border-t border-slate-100 text-xs">
+          <summary class="font-bold cursor-pointer">⚙️ ตั้งค่า</summary>
+          <div class="space-y-2 mt-2">
+            <label class="flex items-center gap-2"><input type="checkbox" id="setAutoConfirm" onchange="saveSettings()" class="w-4 h-4"> สแกนกล่องถัดไป = ยืนยันกล่องก่อนหน้าอัตโนมัติ</label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="setVoice" onchange="saveSettings()" class="w-4 h-4"> เสียงพูดภาษาไทยเตือน (ผิดคัน / สแกนซ้ำ)</label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="setRequireMaster" onchange="saveSettings()" class="w-4 h-4"> เตือนแรงเมื่อเลขพัสดุไม่อยู่ในไฟล์ออเดอร์</label>
+            <div>
+              <label class="block mb-1">ชื่อหน้างาน/คลัง (แสดงในรายงาน LINE):</label>
+              <input type="text" id="setSiteName" onchange="saveSettings()" class="w-full border border-slate-300 rounded-lg p-2" placeholder="คลังออนไลน์ เพชรสยาม">
+            </div>
+          </div>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== BOTTOM NAV ===== -->
+  <nav class="bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 z-30 shadow-lg" style="padding-bottom: env(safe-area-inset-bottom)">
+    <div class="max-w-md mx-auto grid grid-cols-5 py-1 px-1">
+      <button onclick="switchTab('scan')" id="nav-scan" class="nav-btn flex flex-col items-center py-1"><span class="text-lg leading-none">📷</span><span class="text-[10px] mt-0.5">สแกน</span></button>
+      <button onclick="switchTab('list')" id="nav-list" class="nav-btn flex flex-col items-center py-1 relative"><span class="text-lg leading-none">📋</span><span class="text-[10px] mt-0.5">รายการวันนี้</span><span id="navListBadge" class="hidden absolute top-0 right-3 bg-indigo-600 text-white text-[9px] px-1 rounded-full font-bold">0</span></button>
+      <button onclick="switchTab('handover')" id="nav-handover" class="nav-btn flex flex-col items-center py-1"><span class="text-lg leading-none">🚚</span><span class="text-[10px] mt-0.5">ส่งมอบ</span></button>
+      <button onclick="switchTab('report')" id="nav-report" class="nav-btn flex flex-col items-center py-1"><span class="text-lg leading-none">📊</span><span class="text-[10px] mt-0.5">สรุปยอด</span></button>
+      <button onclick="switchTab('master')" id="nav-master" class="nav-btn flex flex-col items-center py-1"><span class="text-lg leading-none">📥</span><span class="text-[10px] mt-0.5">ไฟล์ออเดอร์</span></button>
+    </div>
+  </nav>
+
+  <!-- ===== FULLSCREEN ALERT (truck check / duplicate) ===== -->
+  <div id="alertOverlay" class="hidden fixed inset-0 z-[60] flex flex-col items-center justify-center text-white text-center p-6" onclick="dismissAlert()">
+    <div id="alertIcon" class="text-8xl mb-2">✅</div>
+    <div id="alertTitle" class="text-4xl font-black leading-tight">ถูกต้อง!</div>
+    <div id="alertSub" class="text-xl font-bold mt-2 opacity-95"></div>
+    <div id="alertDetail" class="text-base mt-4 bg-black/25 rounded-2xl px-4 py-3 max-w-sm w-full"></div>
+    <div id="alertHint" class="text-sm mt-6 opacity-80">แตะหน้าจอเพื่อปิด</div>
+  </div>
+
+  <!-- ===== BIG TAG MODAL ===== -->
+  <div id="bigTagModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-4 space-y-3 shadow-2xl">
+      <div class="flex items-center justify-between border-b pb-2">
+        <h3 class="font-bold text-sm">🏷️ ป้าย Big Tag (A5 แนวนอน)</h3>
+        <button onclick="closeBigTagModal()" class="text-slate-400 text-2xl font-bold leading-none">&times;</button>
+      </div>
+      <div id="bigTagPreview" class="border-4 border-slate-900 rounded-xl p-3 bg-white space-y-1.5"></div>
+      <div class="flex gap-2">
+        <button onclick="printBigTags([bigTagRecord])" class="flex-1 bg-indigo-600 text-white py-2.5 rounded-xl font-bold text-sm shadow">🖨️ พิมพ์ป้าย</button>
+        <button onclick="closeBigTagModal()" class="flex-1 bg-slate-100 py-2.5 rounded-xl font-semibold text-sm">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== EDIT MODAL ===== -->
+  <div id="editItemModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-4 space-y-2.5 shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b pb-2">
+        <h3 class="font-bold text-sm">✏️ แก้ไขข้อมูลพัสดุ</h3>
+        <button onclick="closeEditItemModal()" class="text-slate-400 text-2xl font-bold leading-none">&times;</button>
+      </div>
+      <div class="bg-slate-50 p-2 rounded-xl text-xs font-mono font-bold text-indigo-700" id="editModalTracking"></div>
+      <div>
+        <label class="text-[11px] font-bold block mb-1">ชื่อสินค้า:</label>
+        <input type="text" id="editModalProduct" class="w-full text-sm p-2 border border-slate-300 rounded-lg font-semibold">
+        <div id="editQuickChips" class="mt-1.5 flex flex-wrap gap-1"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="text-[11px] font-bold block mb-1">ตัวเลือก / สี:</label><input type="text" id="editModalVariant" class="w-full text-sm p-2 border border-slate-300 rounded-lg"></div>
+        <div><label class="text-[11px] font-bold block mb-1">จำนวน (ชิ้น):</label><input type="number" id="editModalQty" min="1" class="w-full text-sm p-2 border border-slate-300 rounded-lg font-bold"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="text-[11px] font-bold block mb-1">ช่องทาง:</label><select id="editModalPlatform" class="w-full text-sm p-2 border border-slate-300 rounded-lg"><option>Shopee</option><option>Lazada</option><option>TikTok</option><option value="Other">อื่นๆ</option></select></div>
+        <div><label class="text-[11px] font-bold block mb-1">ขนส่ง:</label><select id="editModalCourier" class="w-full text-sm p-2 border border-slate-300 rounded-lg"></select></div>
+      </div>
+      <div><label class="text-[11px] font-bold block mb-1">ปลายทาง / จังหวัด:</label><input type="text" id="editModalDestination" class="w-full text-sm p-2 border border-slate-300 rounded-lg"></div>
+      <div><label class="text-[11px] font-bold block mb-1">ชื่อผู้รับ:</label><input type="text" id="editModalRecipient" class="w-full text-sm p-2 border border-slate-300 rounded-lg"></div>
+      <p class="text-[10px] text-slate-400">* ถ้าออเดอร์มีหลายสินค้า การแก้ไขที่นี่จะแก้รายการแรก</p>
+      <div class="pt-1 flex gap-2">
+        <button onclick="saveEditedItem()" class="flex-1 bg-indigo-600 text-white font-bold py-2.5 rounded-xl text-sm">💾 บันทึก</button>
+        <button onclick="closeEditItemModal()" class="px-4 bg-slate-100 font-semibold py-2.5 rounded-xl text-sm">ยกเลิก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MISSING LIST MODAL ===== -->
+  <div id="missingModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-4 space-y-2 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b pb-2">
+        <h3 id="missingModalTitle" class="font-bold text-sm">กล่องที่ยังไม่ขึ้นรถ</h3>
+        <button onclick="document.getElementById('missingModal').classList.add('hidden')" class="text-slate-400 text-2xl font-bold leading-none">&times;</button>
+      </div>
+      <div id="missingModalBody" class="overflow-y-auto space-y-1.5 text-xs"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="hidden fixed top-16 left-1/2 -translate-x-1/2 z-[70] max-w-sm w-[92%] px-4 py-3 rounded-xl shadow-xl text-sm font-bold text-white"></div>
+
+  <!-- Print area for Big Tags -->
+  <div id="printArea"></div>
+
+<script>
+/* =====================================================================
+   PackScan Pro (Hybrid) — เพชรสยาม (PST)
+   ไฟล์เดียวจบ: HTML + JS, เก็บข้อมูลใน localStorage ของเครื่อง
+   ===================================================================== */
+
+// ---------- ขนส่ง (Courier) ----------
+const COURIERS = {
+  SPX:   { name: 'SPX Express',      short: 'SPX',    platform: 'Shopee', bg: '#ee4d2d', fg: '#fff' },
+  FLASH: { name: 'Flash Express',    short: 'FLASH',  platform: null,     bg: '#ffcc00', fg: '#111' },
+  JT:    { name: 'J&T Express',      short: 'J&T',    platform: null,     bg: '#d71920', fg: '#fff' },
+  KERRY: { name: 'Kerry Express',    short: 'KERRY',  platform: null,     bg: '#ff6600', fg: '#fff' },
+  LEX:   { name: 'Lazada (LEX)',     short: 'LEX',    platform: 'Lazada', bg: '#1a3fe0', fg: '#fff' },
+  DHL:   { name: 'DHL eCommerce',    short: 'DHL',    platform: null,     bg: '#ffcc00', fg: '#d40511' },
+  BEST:  { name: 'BEST Express',     short: 'BEST',   platform: null,     bg: '#b91c1c', fg: '#fff' },
+  THP:   { name: 'ไปรษณีย์ไทย',       short: 'THP',    platform: null,     bg: '#e30613', fg: '#fff' },
+  BULKY: { name: 'รถสินค้าขนาดใหญ่',   short: 'BULKY',  platform: null,     bg: '#7c3aed', fg: '#fff' },
+  OWN:   { name: 'รถบริษัท',          short: 'รถบริษัท', platform: null,    bg: '#0f766e', fg: '#fff' },
+  OTHER: { name: 'ไม่ทราบขนส่ง',       short: '?',      platform: null,     bg: '#64748b', fg: '#fff' },
+};
+const PLATFORM_STYLE = {
+  Shopee: { bg: '#ee4d2d', fg: '#fff' }, Lazada: { bg: '#0f146d', fg: '#fff' },
+  TikTok: { bg: '#111', fg: '#fff' }, Other: { bg: '#64748b', fg: '#fff' }
+};
+
+function normalizeCourier(str) {
+  const s = String(str || '').toLowerCase();
+  if (!s) return null;
+  if (/spx|shopee\s*express|shopee xpress/.test(s)) return 'SPX';
+  if (/flash/.test(s)) return 'FLASH';
+  if (/j\s*&\s*t|jnt|j&t|jt express/.test(s)) return 'JT';
+  if (/kerry|kex/.test(s)) return 'KERRY';
+  if (/lex|lazada/.test(s)) return 'LEX';
+  if (/dhl/.test(s)) return 'DHL';
+  if (/best/.test(s)) return 'BEST';
+  if (/thailand\s*post|ไปรษณีย์|thai post|ems/.test(s)) return 'THP';
+  if (/bulky|ใหญ่/.test(s)) return 'BULKY';
+  if (/บริษัท|own/.test(s)) return 'OWN';
+  return null;
+}
+// เดาขนส่งจากรูปแบบเลขพัสดุ (ใช้เมื่อไม่มีในไฟล์ออเดอร์) — ไฟล์ออเดอร์แม่นกว่าเสมอ
+function guessCourierFromTracking(t) {
+  if (/^SPX/.test(t) || /^TH\d{12,14}[A-Z]?$/.test(t)) return 'SPX';
+  if (/^TH\d{2}[0-9A-Z]{8,12}$/.test(t) && /[A-Z]/.test(t.slice(2))) return 'FLASH';
+  if (/^(KER|KEX|KBK|SHP)/.test(t)) return 'KERRY';
+  if (/^(LEX|LX[A-Z]{2}|LZ)/.test(t)) return 'LEX';
+  if (/^(JT|JNT)/.test(t) || /^[68]\d{11}$/.test(t)) return 'JT';
+  if (/^(TDZ|THDHL|DHL)/.test(t)) return 'DHL';
+  if (/^BEST/.test(t)) return 'BEST';
+  if (/^[A-Z]{2}\d{9}TH$/.test(t)) return 'THP';
+  return 'OTHER';
+}
+function platformFromCourier(c) { return (COURIERS[c] && COURIERS[c].platform) || 'Other'; }
+function normalizePlatform(s) {
+  s = String(s || '').toLowerCase();
+  if (s.includes('shopee')) return 'Shopee';
+  if (s.includes('lazada')) return 'Lazada';
+  if (s.includes('tiktok') || s.includes('tik tok')) return 'TikTok';
+  return null;
+}
+
+// ---------- สีสินค้า → swatch ----------
+const COLOR_WORDS = [
+  ['ม่วง','#7c3aed'],['purple','#7c3aed'],['ดำ','#111827'],['black','#111827'],['ขาว','#ffffff'],['white','#ffffff'],
+  ['แดง','#dc2626'],['red','#dc2626'],['เขียว','#16a34a'],['green','#16a34a'],['ฟ้า','#38bdf8'],['sky','#38bdf8'],
+  ['น้ำเงิน','#1d4ed8'],['กรม','#1e3a8a'],['blue','#2563eb'],['เหลือง','#facc15'],['yellow','#facc15'],['ชมพู','#ec4899'],['pink','#ec4899'],
+  ['ส้ม','#f97316'],['orange','#f97316'],['เทา','#6b7280'],['gray','#6b7280'],['grey','#6b7280'],['น้ำตาล','#92400e'],['brown','#92400e'],
+  ['ครีม','#fef3c7'],['cream','#fef3c7'],['ใส','repeating-linear-gradient(45deg,#e2e8f0 0 4px,#fff 4px 8px)'],['clear','repeating-linear-gradient(45deg,#e2e8f0 0 4px,#fff 4px 8px)'],
+  ['เบจ','#d6c3a5'],['beige','#d6c3a5'],['มิ้นท์','#6ee7b7'],['mint','#6ee7b7'],['แอมเบอร์','#f59e0b'],['amber','#f59e0b']
+];
+function colorSwatches(text) {
+  const s = String(text || '').toLowerCase(); const found = [];
+  COLOR_WORDS.forEach(([w, c]) => { if (s.includes(w) && !found.includes(c)) found.push(c); });
+  return found.slice(0, 3).map(c => `<span class="swatch" style="background:${c}"></span>`).join(' ');
+}
+
+const QUICK_PRODUCTS = [
+  ['📦 กล่อง 70L', 'PST กล่องพลาสติกเก็บของอเนกประสงค์ 70 ลิตร'],
+  ['🪑 บันได 2 ชั้น', 'PST เก้าอี้บันไดพลาสติกเพชรสยาม 2 ชั้น'],
+  ['🗄️ Cooper 3 ชั้น', 'PST ชั้นวางของอเนกประสงค์ Cooper 3 ชั้น'],
+  ['🗄️ Elly 4 ชั้น', 'ชั้นวางของอเนกประสงค์ Elly 4 ชั้น (ใหญ่)'],
+  ['🧺 ตะกร้าผ้าแอมเบอร์', 'PST ตะกร้าผ้าพลาสติกแอมเบอร์พร้อมฝาปิด Size M'],
+  ['🗑️ ถังขยะ PUSH', 'PST ถังขยะพลาสติกกลมฝาแบบ PUSH 28 ลิตร'],
+  ['🪣 ถังน้ำ 44L', 'ถังน้ำหูล็อคพร้อมฝา 44 ลิตร'],
+  ['🪑 เก้าอี้ญี่ปุ่น', 'เก้าอี้ญี่ปุ่นสี่เหลี่ยม ขนาดกลาง'],
+  ['📂 ตู้เอกสาร 7 ชั้น', 'ตู้ใส่เอกสาร 7 ชั้น เพชรสยาม'],
+];
+
+// ---------- STATE ----------
+const LS = { master: 'psp_master_v2', scans: 'psp_scans_v2', handovers: 'psp_handovers_v2', settings: 'psp_settings_v2' };
+const state = {
+  master: {}, scans: [], handovers: [],
+  settings: { autoConfirm: true, voice: true, requireMaster: true, siteName: 'คลังออนไลน์ เพชรสยาม' },
+  workflow: 'pack', scanMode: 'live', formatMode: 'all', truckTarget: 'SPX',
+  pending: null, editTarget: null, truckPhoto: null, torchOn: false,
+};
+let html5QrCode = null, cameraRunning = false, lastCode = '', lastCodeAt = 0, bigTagRecord = null;
+
+function lsGet(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+function lsSet(k, v) {
+  try { localStorage.setItem(k, JSON.stringify(v)); }
+  catch (e) { showToast('⚠️ พื้นที่เก็บข้อมูลในเครื่องเต็ม — ลบประวัติ/รูปเก่าออกก่อน', 'red'); }
+}
+function persist() { lsSet(LS.master, state.master); lsSet(LS.scans, state.scans); lsSet(LS.handovers, state.handovers); }
+
+const pad = n => String(n).padStart(2, '0');
+function dateKey(d = new Date()) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function timeStr(iso) { const d = new Date(iso); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+function thaiDate(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  const mo = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][m - 1];
+  return `${d} ${mo} ${y + 543}`;
+}
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = id => document.getElementById(id);
+const todayScans = () => state.scans.filter(s => s.date === dateKey());
+const totalQty = items => (items || []).reduce((a, i) => a + (Number(i.qty) || 0), 0);
+
+// ---------- SOUND / VOICE / VIBRATE ----------
+let audioCtx = null;
+function ac() { if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); return audioCtx; }
+function tone(freq, dur, type = 'sine', vol = 0.3, delay = 0) {
+  const c = ac(); if (!c) return;
+  const o = c.createOscillator(), g = c.createGain(); const t0 = c.currentTime + delay;
+  o.type = type; o.frequency.setValueAtTime(freq, t0); g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+}
+function beepOK() { tone(1320, 0.12, 'sine', 0.35); vibrate(60); }
+function beepWarn() { tone(660, 0.15, 'square', 0.25); tone(660, 0.15, 'square', 0.25, 0.22); vibrate([120, 80, 120]); }
+function siren(seconds = 2.4) {
+  const c = ac(); if (!c) return;
+  const o = c.createOscillator(), g = c.createGain(); const t0 = c.currentTime;
+  o.type = 'sawtooth'; g.gain.setValueAtTime(0.45, t0);
+  for (let i = 0; i < seconds / 0.4; i++) { o.frequency.setValueAtTime(700, t0 + i * 0.4); o.frequency.linearRampToValueAtTime(1500, t0 + i * 0.4 + 0.2); o.frequency.linearRampToValueAtTime(700, t0 + i * 0.4 + 0.4); }
+  g.gain.setValueAtTime(0.45, t0 + seconds - 0.05); g.gain.linearRampToValueAtTime(0, t0 + seconds);
+  o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0 + seconds);
+  vibrate([400, 100, 400, 100, 400, 100, 400]);
+}
+function vibrate(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
+function speak(text) {
+  if (!state.settings.voice || !window.speechSynthesis) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'th-TH'; u.rate = 1.05; speechSynthesis.speak(u); } catch (e) {}
+}
+document.addEventListener('pointerdown', () => ac(), { once: true });
+
+// ---------- UI HELPERS ----------
+let toastTimer = null;
+function showToast(msg, color = 'slate', ms = 2600) {
+  const t = $('toast'); const c = { slate: '#334155', red: '#dc2626', green: '#059669', amber: '#d97706', indigo: '#4f46e5' }[color] || color;
+  t.style.background = c; t.innerHTML = msg; t.classList.remove('hidden');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), ms);
+}
+let alertTimer = null;
+function showAlert({ kind, icon, title, sub, detail, autoClose }) {
+  const o = $('alertOverlay');
+  o.className = 'fixed inset-0 z-[60] flex flex-col items-center justify-center text-white text-center p-6 pop-in';
+  o.style.animation = '';
+  if (kind === 'ok') o.style.background = '#059669';
+  else if (kind === 'error') { o.style.background = '#dc2626'; o.style.animation = 'flashRed .35s infinite'; }
+  else o.style.background = '#d97706';
+  $('alertIcon').textContent = icon; $('alertTitle').innerHTML = title; $('alertSub').innerHTML = sub || '';
+  $('alertDetail').innerHTML = detail || ''; $('alertDetail').classList.toggle('hidden', !detail);
+  $('alertHint').textContent = autoClose ? 'สแกนกล่องต่อไปได้เลย' : 'แตะหน้าจอเพื่อรับทราบ แล้วสแกนต่อ';
+  clearTimeout(alertTimer);
+  if (autoClose) alertTimer = setTimeout(dismissAlert, autoClose);
+}
+function dismissAlert() { $('alertOverlay').classList.add('hidden'); clearTimeout(alertTimer); }
+
+function courierBadge(c) { const x = COURIERS[c] || COURIERS.OTHER; return `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold" style="background:${x.bg};color:${x.fg}">${esc(x.short)}</span>`; }
+function platformBadge(p) { const x = PLATFORM_STYLE[p] || PLATFORM_STYLE.Other; return `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold" style="background:${x.bg};color:${x.fg}">${esc(p === 'Other' ? 'อื่นๆ' : p)}</span>`; }
+
+function fillCourierSelects() {
+  const opts = Object.entries(COURIERS).filter(([k]) => k !== 'OTHER').map(([k, v]) => `<option value="${k}">${esc(v.name)}</option>`).join('');
+  $('truckTargetCourierSelect').innerHTML = opts; $('handoverCourierSelect').innerHTML = opts;
+  $('editModalCourier').innerHTML = Object.entries(COURIERS).map(([k, v]) => `<option value="${k}">${esc(v.name)}</option>`).join('');
+}
+
+// ---------- TABS ----------
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
+  $('tab-' + tab).classList.remove('hidden');
+  document.querySelectorAll('.nav-btn').forEach(b => { b.classList.remove('text-indigo-600', 'font-bold'); b.classList.add('text-slate-500'); });
+  $('nav-' + tab).classList.add('text-indigo-600', 'font-bold'); $('nav-' + tab).classList.remove('text-slate-500');
+  if (tab !== 'scan' && cameraRunning) stopLiveScanner();
+  if (tab === 'list') renderScanList();
+  if (tab === 'handover') { updateHandoverPreview(); renderHandoverHistory(); }
+  if (tab === 'report') { fillReportDates(); renderReport(); }
+  if (tab === 'master') renderMasterOrderList();
+  window.scrollTo(0, 0);
+}
+
+// ---------- WORKFLOW ----------
+function setWorkflowMode(mode) {
+  state.workflow = mode;
+  const on = 'bg-indigo-600 text-white ring-2 ring-indigo-300', off = 'bg-white text-slate-700 border border-slate-200';
+  $('btnWorkflowPack').className = 'py-3 rounded-xl font-bold text-sm shadow-sm transition ' + (mode === 'pack' ? on : off);
+  $('btnWorkflowTruck').className = 'py-3 rounded-xl font-bold text-sm shadow-sm transition ' + (mode === 'truck' ? 'bg-amber-500 text-white ring-2 ring-amber-300' : off);
+  $('truckPanel').classList.toggle('hidden', mode !== 'truck');
+  if (mode === 'truck') { if (state.pending) autoConfirmPending(); $('resultCard').classList.add('hidden'); updateTruckCounts(); }
+}
+function changeTruckTargetCourier(v) { state.truckTarget = v; localStorage.setItem('psp_truck', v); updateTruckCounts(); }
+function updateTruckCounts() {
+  const list = todayScans().filter(s => s.courier === state.truckTarget && !s.handoverId);
+  $('truckPackedCount').textContent = list.length;
+  $('truckLoadedCount').textContent = list.filter(s => s.loaded).length;
+}
+
+// ---------- SCAN MODE / FORMAT ----------
+function setScanMode(mode) {
+  state.scanMode = mode;
+  $('btnModeLive').className = 'px-2.5 py-1 rounded-md ' + (mode === 'live' ? 'bg-white text-indigo-700 shadow-sm font-bold' : 'text-slate-600');
+  $('btnModeSnap').className = 'px-2.5 py-1 rounded-md ' + (mode === 'snap' ? 'bg-white text-indigo-700 shadow-sm font-bold' : 'text-slate-600');
+  $('snapModeUI').classList.toggle('hidden', mode !== 'snap');
+  if (mode === 'snap' && cameraRunning) stopLiveScanner();
+}
+function setBarcodeFormatMode(m) {
+  state.formatMode = m;
+  ['all', '1d', 'qr'].forEach(k => {
+    const id = { all: 'btnFormatAll', '1d': 'btnFormat1D', qr: 'btnFormatQR' }[k];
+    $(id).className = 'px-2 py-1 rounded-lg ' + (k === m ? 'bg-indigo-600 text-white font-bold' : 'bg-white text-slate-700');
+  });
+  if (cameraRunning) { stopLiveScanner().then(() => startLiveScanner()); }
+}
+function getFormats() {
+  if (typeof Html5QrcodeSupportedFormats === 'undefined') return undefined;
+  const F = Html5QrcodeSupportedFormats;
+  const oneD = [F.CODE_128, F.CODE_39, F.CODE_93, F.EAN_13, F.EAN_8, F.UPC_A, F.ITF, F.CODABAR];
+  if (state.formatMode === '1d') return oneD;
+  if (state.formatMode === 'qr') return [F.QR_CODE, F.DATA_MATRIX];
+  return [...oneD, F.QR_CODE, F.DATA_MATRIX, F.PDF_417];
+}
+
+// ---------- CAMERA ----------
+async function startLiveScanner() {
+  ac();
+  if (!window.isSecureContext) { $('cameraErrorMessage').textContent = 'กล้องสดต้องเปิดผ่าน HTTPS — ใช้ปืนยิง USB / พิมพ์เลข / โหมดถ่ายรูปแทนได้'; return; }
+  if (typeof Html5Qrcode === 'undefined') { $('cameraErrorMessage').textContent = 'โหลดตัวสแกนไม่สำเร็จ (ตรวจสอบอินเทอร์เน็ต)'; return; }
+  setScanMode('live');
+  try {
+    if (html5QrCode) { try { await html5QrCode.clear(); } catch (e) {} }
+    html5QrCode = new Html5Qrcode('reader', { formatsToSupport: getFormats(), verbose: false, experimentalFeatures: { useBarCodeDetectorIfSupported: true } });
+    const w = Math.min($('cameraViewportContainer').clientWidth - 30, 340);
+    const base = { fps: 12, qrbox: { width: w, height: Math.round(w * 0.5) }, aspectRatio: 1.333, disableFlip: true };
+    const onOk = text => onCodeDetected(text, 'camera');
+    // ลองเปิดกล้องหลังทีละวิธี เผื่อมือถือบางรุ่น (iPhone รุ่นเก่า / Android บางยี่ห้อ) ไม่รับค่าบางแบบ
+    const attempts = [
+      () => html5QrCode.start({ facingMode: 'environment' }, { ...base, videoConstraints: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 }, advanced: [{ focusMode: 'continuous' }] } }, onOk, () => {}),
+      () => html5QrCode.start({ facingMode: 'environment' }, base, onOk, () => {}),
+      () => html5QrCode.start({ facingMode: { exact: 'environment' } }, base, onOk, () => {}),
+      async () => {
+        const cams = await Html5Qrcode.getCameras();
+        if (!cams || !cams.length) throw new Error('ไม่พบกล้อง');
+        const back = cams.find(c => /back|rear|environment|หลัง/i.test(c.label) && !/ultra|wide|tele/i.test(c.label)) || cams.find(c => /back|rear|environment|หลัง/i.test(c.label)) || cams[cams.length - 1];
+        return html5QrCode.start(back.id, base, onOk, () => {});
+      }
+    ];
+    let lastErr = null, started = false;
+    for (const a of attempts) {
+      try { await a(); started = true; break; }
+      catch (e) { lastErr = e; if (/Permission|NotAllowed/i.test(String(e))) break; try { await html5QrCode.stop(); } catch (_) {} }
+    }
+    if (!started) throw lastErr;
+    cameraRunning = true;
+    $('cameraInactiveUI').classList.add('hidden'); $('scannerOverlay').classList.add('hidden');
+    $('btnToggleCamera').textContent = '⏹ หยุดกล้อง'; $('btnToggleCamera').classList.replace('bg-indigo-600', 'bg-rose-600');
+    try { const caps = html5QrCode.getRunningTrackCapabilities(); $('btnTorch').classList.toggle('hidden', !caps.torch); } catch (e) {}
+  } catch (err) {
+    cameraRunning = false;
+    $('cameraInactiveUI').classList.remove('hidden');
+    $('cameraErrorMessage').textContent = /Permission|NotAllowed/i.test(String(err)) ? 'ไม่ได้รับอนุญาตใช้กล้อง — ไปที่ตั้งค่าเบราว์เซอร์ > อนุญาตกล้อง แล้วลองใหม่' : 'เปิดกล้องไม่สำเร็จ: ' + String(err).slice(0, 120);
+  }
+}
+async function stopLiveScanner() {
+  if (html5QrCode && cameraRunning) { try { await html5QrCode.stop(); } catch (e) {} }
+  cameraRunning = false; state.torchOn = false;
+  $('cameraInactiveUI').classList.remove('hidden'); $('btnTorch').classList.add('hidden');
+  $('btnToggleCamera').textContent = '▶️ เริ่มกล้อง'; $('btnToggleCamera').classList.replace('bg-rose-600', 'bg-indigo-600');
+}
+function toggleCameraStream() { cameraRunning ? stopLiveScanner() : startLiveScanner(); }
+async function toggleTorch() {
+  if (!html5QrCode || !cameraRunning) return;
+  state.torchOn = !state.torchOn;
+  try { await html5QrCode.applyVideoConstraints({ advanced: [{ torch: state.torchOn }] }); } catch (e) { showToast('อุปกรณ์นี้ไม่รองรับแฟลช', 'amber'); }
+}
+
+// ---------- PHOTO / OCR FALLBACK ----------
+let tesseractLoading = null;
+function loadTesseract() {
+  if (window.Tesseract) return Promise.resolve();
+  if (!tesseractLoading) tesseractLoading = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  return tesseractLoading;
+}
+async function handleTagPhoto(input) {
+  const file = input.files && input.files[0]; input.value = ''; if (!file) return;
+  $('ocrLoading').classList.remove('hidden'); $('ocrStatusText').textContent = 'กำลังอ่านบาร์โค้ดจากภาพ...';
+  try {
+    const tmp = new Html5Qrcode('reader', { formatsToSupport: getFormats(), verbose: false });
+    const txt = await tmp.scanFile(file, false); try { tmp.clear(); } catch (e) {}
+    $('ocrLoading').classList.add('hidden'); onCodeDetected(txt, 'photo'); return;
+  } catch (e) { /* ไม่เจอบาร์โค้ด → OCR */ }
+  try {
+    $('ocrStatusText').textContent = 'ไม่พบบาร์โค้ด กำลังอ่านตัวอักษร (OCR)...';
+    await loadTesseract();
+    const r = await Tesseract.recognize(file, 'eng');
+    const raw = (r.data.text || '').toUpperCase().replace(/[ \t]/g, '');
+    const cands = raw.match(/[A-Z]{2,5}\d[0-9A-Z]{7,20}|\d{10,16}/g) || [];
+    const hit = cands.find(c => state.master[c]) || cands[0];
+    $('ocrLoading').classList.add('hidden');
+    if (hit) { showToast('🔎 OCR พบเลข: ' + hit, 'indigo'); onCodeDetected(hit, 'ocr'); }
+    else showToast('อ่านเลขพัสดุจากภาพไม่ได้ — ลองถ่ายใกล้ๆ ให้ชัด หรือพิมพ์เลขเอง', 'red', 3500);
+  } catch (e) { $('ocrLoading').classList.add('hidden'); showToast('OCR ใช้งานไม่ได้ (ต้องต่ออินเทอร์เน็ตครั้งแรก)', 'red'); }
+}
+
+// ---------- INPUT: manual + USB keyboard-wedge scanner ----------
+function handleManualSubmit() { const v = $('manualInput').value; $('manualInput').value = ''; if (v.trim()) onCodeDetected(v, 'manual'); }
+$('manualInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); handleManualSubmit(); } });
+let wedgeBuf = '', wedgeLast = 0;
+document.addEventListener('keydown', e => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if (!$('alertOverlay').classList.contains('hidden') && e.key === 'Enter') { dismissAlert(); }
+  const now = Date.now();
+  if (now - wedgeLast > 80) wedgeBuf = '';
+  wedgeLast = now;
+  if (e.key === 'Enter') { if (wedgeBuf.length >= 6) { e.preventDefault(); const code = wedgeBuf; wedgeBuf = ''; dismissAlert(); onCodeDetected(code, 'usb'); } wedgeBuf = ''; return; }
+  if (e.key.length === 1) wedgeBuf += e.key;
+});
+
+// ---------- CODE PARSING ----------
+function extractTracking(raw) {
+  let t = String(raw || '').trim();
+  const up = t.toUpperCase().replace(/\s+/g, '');
+  if (state.master[up]) return up;
+  // QR อาจเป็น URL/JSON → หาเลขพัสดุที่อยู่ในฐานข้อมูล หรือรูปแบบเลขพัสดุ
+  const tokens = up.match(/[A-Z0-9-]{8,30}/g) || [];
+  const inMaster = tokens.find(x => state.master[x]); if (inMaster) return inMaster;
+  if (/^[A-Z0-9-]{8,30}$/.test(up) && /\d{4}/.test(up)) return up;
+  const pat = tokens.find(x => /^[A-Z]{2,5}\d{6,}[A-Z0-9]*$/.test(x) || /^\d{10,16}$/.test(x));
+  return pat || null;
+}
+
+function onCodeDetected(raw, source) {
+  const now = Date.now();
+  const code = extractTracking(raw);
+  if (!code) { if (source !== 'camera') { beepWarn(); showToast('⚠️ รหัสนี้ไม่ใช่เลขพัสดุ: ' + esc(String(raw).slice(0, 40)), 'red'); } return; }
+  if (code === lastCode && now - lastCodeAt < 2500) return; // กันกล้องอ่านซ้ำรัว
+  lastCode = code; lastCodeAt = now;
+  if (state.workflow === 'truck') return handleTruckScan(code);
+  return handlePackScan(code);
+}
+
+// ---------- PACK MODE ----------
+function buildRecord(code) {
+  const m = state.master[code];
+  const courier = m ? (m.courier || guessCourierFromTracking(code)) : guessCourierFromTracking(code);
+  return {
+    tracking: code, orderNo: m ? m.orderNo : '', platform: m ? (m.platform || platformFromCourier(courier)) : platformFromCourier(courier),
+    courier, items: m ? JSON.parse(JSON.stringify(m.items)) : [{ name: '', variant: '', qty: 1 }],
+    recipient: m ? m.recipient : '', destination: m ? m.destination : '', note: m ? m.note : '',
+    inMaster: !!m, date: dateKey(), time: new Date().toISOString(), loaded: null, handoverId: null
+  };
+}
+function handlePackScan(code) {
+  const dup = todayScans().find(s => s.tracking === code);
+  if (dup) {
+    beepWarn(); speak('สแกนซ้ำ');
+    showAlert({ kind: 'warn', icon: '🔁', title: 'สแกนซ้ำ!', sub: 'กล่องนี้แพ็คไปแล้วเมื่อ ' + timeStr(dup.time), detail: `<span class="font-mono">${esc(code)}</span><br>${esc(itemsText(dup.items))}`, autoClose: 2200 });
+    return;
+  }
+  if (state.pending && state.pending.tracking === code) return;
+  if (state.pending) {
+    if (state.settings.autoConfirm) autoConfirmPending();
+    else { beepWarn(); showToast('⚠️ กรุณากด “ยืนยันแพ็ค” กล่องก่อนหน้าก่อน', 'amber'); return; }
+  }
+  state.pending = buildRecord(code);
+  if (state.pending.inMaster) { beepOK(); }
+  else { beepWarn(); if (state.settings.requireMaster) speak('ไม่พบในไฟล์ออเดอร์'); }
+  renderResultCard();
+}
+function autoConfirmPending() { if (!state.pending) return; const t = state.pending.tracking; commitPending(); showToast('✅ บันทึกกล่องก่อนหน้าแล้ว ' + t, 'green', 1500); }
+function commitPending() {
+  if (!state.pending) return;
+  state.scans.push(state.pending); state.pending = null; persist(); refreshAll();
+}
+function confirmCurrentScan() {
+  if (!state.pending) return;
+  const p = state.pending; commitPending(); beepOK();
+  $('resultCard').classList.add('hidden');
+  showToast(`✅ แพ็คแล้ว ${esc(p.tracking)} — สแกนกล่องต่อไปได้เลย`, 'green', 1800);
+}
+function discardCurrentScan() { state.pending = null; $('resultCard').classList.add('hidden'); lastCode = ''; }
+
+function itemsText(items) { return (items || []).map(i => `${i.name || '(ไม่ระบุสินค้า)'}${i.variant ? ' [' + i.variant + ']' : ''} x${i.qty}`).join(', '); }
+
+function renderResultCard() {
+  const p = state.pending; if (!p) return;
+  const card = $('resultCard'); card.classList.remove('hidden'); card.classList.remove('pop-in'); void card.offsetWidth; card.classList.add('pop-in');
+  const cs = COURIERS[p.courier] || COURIERS.OTHER;
+  card.style.borderColor = p.inMaster ? '#10b981' : '#f59e0b';
+  $('resultCardHeader').style.background = cs.bg; $('resultCardHeader').style.color = cs.fg;
+  const ps = PLATFORM_STYLE[p.platform] || PLATFORM_STYLE.Other;
+  $('badgePlatform').textContent = p.platform === 'Other' ? 'อื่นๆ' : p.platform; $('badgePlatform').style.color = ps.bg;
+  $('badgeCourier').textContent = cs.name;
+  $('badgeMatched').textContent = p.inMaster ? '✓ พบในไฟล์ออเดอร์' : '⚠ ไม่พบในไฟล์ออเดอร์';
+  $('badgeMatched').style.background = p.inMaster ? '#10b981' : '#f59e0b'; $('badgeMatched').style.color = '#fff';
+  $('scanTimestamp').textContent = timeStr(p.time);
+  $('resTracking').textContent = p.tracking; $('resOrderNo').textContent = p.orderNo || '-';
+  const tq = totalQty(p.items);
+  $('resTotalQty').textContent = `${p.items.length} รายการ • ${tq} ชิ้น`;
+  $('resItemsContainer').innerHTML = p.items.map(i => {
+    const many = Number(i.qty) > 1;
+    return `<div class="bg-white p-2.5 rounded-lg border-2 ${many ? 'border-rose-400' : 'border-amber-200'}">
+      <p class="text-2xl font-black text-slate-900 leading-tight">${i.name ? esc(i.name) : '<span class="text-slate-400 text-lg">(ยังไม่ระบุสินค้า — เลือกด้านล่าง)</span>'}</p>
+      <div class="mt-2 flex items-center justify-between gap-2">
+        <span class="text-xl font-black ${i.variant ? 'text-indigo-700 bg-indigo-50 border-2 border-indigo-200' : 'text-slate-400 bg-slate-50'} px-2.5 py-1 rounded-lg">${colorSwatches(i.variant + ' ' + i.name)} ${esc(i.variant || 'ไม่มีตัวเลือก')}</span>
+        <span class="text-right shrink-0"><span class="text-[10px] text-slate-500 block">จำนวน</span><span class="text-4xl font-black ${many ? 'text-rose-600' : 'text-slate-900'}">×${esc(i.qty)}</span></span>
+      </div>
+      ${many ? '<p class="mt-1 text-xs font-bold text-rose-600">⚠ มากกว่า 1 ชิ้น — นับให้ครบ!</p>' : ''}
+    </div>`;
+  }).join('');
+  $('resBuyerNoteContainer').classList.toggle('hidden', !p.note); $('resBuyerNote').textContent = p.note || '';
+  $('quickProductWrap').classList.toggle('hidden', p.inMaster);
+  $('resRecipient').textContent = 'ผู้รับ: ' + (p.recipient || '-');
+  $('resDestination').textContent = p.destination || '(ไม่มีข้อมูลปลายทาง — โหลดไฟล์ออเดอร์)';
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function renderQuickChips() {
+  $('quickProductChips').innerHTML = QUICK_PRODUCTS.map(([l, n]) => `<button type="button" onclick="setQuickProduct('${esc(n)}')" class="bg-white border border-amber-300 text-slate-800 text-[11px] px-2 py-1 rounded-md font-semibold">${esc(l)}</button>`).join('');
+  $('editQuickChips').innerHTML = QUICK_PRODUCTS.map(([l, n]) => `<button type="button" onclick="$('editModalProduct').value='${esc(n)}'" class="bg-slate-100 text-slate-700 text-[10px] px-2 py-0.5 rounded border border-slate-200">${esc(l)}</button>`).join('');
+}
+function setQuickProduct(name) { if (!state.pending) return; state.pending.items[0].name = name; renderResultCard(); }
+
+// ---------- EDIT ----------
+function openEdit(rec) {
+  state.editTarget = rec; const i = rec.items[0] || { name: '', variant: '', qty: 1 };
+  $('editModalTracking').textContent = rec.tracking; $('editModalProduct').value = i.name; $('editModalVariant').value = i.variant;
+  $('editModalQty').value = i.qty; $('editModalPlatform').value = rec.platform; $('editModalCourier').value = rec.courier;
+  $('editModalDestination').value = rec.destination; $('editModalRecipient').value = rec.recipient;
+  $('editItemModal').classList.remove('hidden');
+}
+function editCurrentScan() { if (state.pending) openEdit(state.pending); }
+function editScanByIndex(idx) { const r = state.scans[idx]; if (r) openEdit(r); }
+function closeEditItemModal() { $('editItemModal').classList.add('hidden'); state.editTarget = null; }
+function saveEditedItem() {
+  const r = state.editTarget; if (!r) return;
+  if (!r.items.length) r.items.push({ name: '', variant: '', qty: 1 });
+  r.items[0].name = $('editModalProduct').value.trim(); r.items[0].variant = $('editModalVariant').value.trim();
+  r.items[0].qty = Math.max(1, parseInt($('editModalQty').value) || 1);
+  r.platform = $('editModalPlatform').value; r.courier = $('editModalCourier').value;
+  r.destination = $('editModalDestination').value.trim(); r.recipient = $('editModalRecipient').value.trim();
+  closeEditItemModal();
+  if (r === state.pending) renderResultCard(); else { persist(); refreshAll(); renderScanList(); }
+  showToast('💾 บันทึกการแก้ไขแล้ว', 'green');
+}
+
+// ---------- TRUCK LOADING CHECK ----------
+function handleTruckScan(code) {
+  const target = state.truckTarget, tName = COURIERS[target].name;
+  const rec = todayScans().find(s => s.tracking === code);
+  const m = state.master[code];
+  if (!rec) {
+    const c = m ? m.courier : guessCourierFromTracking(code);
+    if (c && c !== 'OTHER' && c !== target) {
+      siren(); speak('ผิดคัน ห้ามยกขึ้นรถ');
+      showAlert({ kind: 'error', icon: '🚨', title: 'ผิดคัน!<br>ห้ามยกขึ้นรถคันนี้', sub: `กล่องนี้เป็นของ <u>${esc(COURIERS[c].name)}</u>`, detail: `<span class="font-mono">${esc(code)}</span><br>และยังไม่ได้สแกนแพ็ค` });
+      return;
+    }
+    beepWarn(); speak('ยังไม่ได้สแกนแพ็ค');
+    showAlert({ kind: 'warn', icon: '⛔', title: 'ยังไม่ได้สแกนแพ็ค', sub: 'นำกล่องกลับไปสแกนแพ็คก่อน แล้วค่อยยกขึ้นรถ', detail: `<span class="font-mono">${esc(code)}</span>${m ? '<br>' + esc(itemsText(m.items)) : ''}` });
+    return;
+  }
+  if (rec.handoverId) {
+    beepWarn(); speak('ส่งมอบไปแล้ว');
+    showAlert({ kind: 'warn', icon: '📦', title: 'ส่งมอบไปแล้ว', sub: 'กล่องนี้อยู่ในรอบส่งมอบก่อนหน้า', detail: `<span class="font-mono">${esc(code)}</span>`, autoClose: 2500 });
+    return;
+  }
+  if (rec.courier === 'OTHER') {
+    beepWarn();
+    showAlert({ kind: 'warn', icon: '❓', title: 'ไม่ทราบขนส่ง', sub: 'ตรวจใบปะหน้าด้วยตา',
+      detail: `<span class="font-mono">${esc(code)}</span><br><button onclick="event.stopPropagation();assignAndLoad('${esc(code)}')" class="mt-3 bg-white text-amber-700 font-black px-4 py-3 rounded-xl text-lg">✔ ใช่ ${esc(tName)} — ยกขึ้นรถ</button>` });
+    return;
+  }
+  if (rec.courier !== target) {
+    siren(); speak('ผิดคัน ห้ามยกขึ้นรถ');
+    showAlert({ kind: 'error', icon: '🚨', title: 'ผิดคัน!<br>ห้ามยกขึ้นรถคันนี้', sub: `กล่องนี้ต้องไป <u>${esc(COURIERS[rec.courier].name)}</u>`, detail: `<span class="font-mono">${esc(code)}</span><br>${esc(itemsText(rec.items))}` });
+    return;
+  }
+  if (rec.loaded) {
+    beepWarn(); speak('ขึ้นรถแล้ว');
+    showAlert({ kind: 'warn', icon: '🔁', title: 'สแกนขึ้นรถไปแล้ว', sub: 'เมื่อ ' + timeStr(rec.loaded), detail: `<span class="font-mono">${esc(code)}</span>`, autoClose: 2000 });
+    return;
+  }
+  rec.loaded = new Date().toISOString(); persist(); updateTruckCounts(); refreshAll();
+  beepOK();
+  const list = todayScans().filter(s => s.courier === target && !s.handoverId);
+  showAlert({ kind: 'ok', icon: '✅', title: 'ถูกต้อง!<br>ยกขึ้นรถได้', sub: `${esc(tName)} • ${list.filter(s => s.loaded).length}/${list.length} กล่อง`, detail: `<span class="font-mono">${esc(code)}</span><br>${esc(itemsText(rec.items))}`, autoClose: 1300 });
+}
+function assignAndLoad(code) {
+  const rec = todayScans().find(s => s.tracking === code); if (!rec) return;
+  rec.courier = state.truckTarget; if (rec.platform === 'Other') rec.platform = platformFromCourier(rec.courier);
+  lastCode = ''; dismissAlert(); handleTruckScan(code);
+}
+function showMissingForCourier(c) {
+  const list = todayScans().filter(s => s.courier === c && !s.handoverId && !s.loaded);
+  $('missingModalTitle').textContent = `${COURIERS[c].name}: ยังไม่ขึ้นรถ ${list.length} กล่อง`;
+  $('missingModalBody').innerHTML = list.length ? list.map(s => `<div class="p-2 bg-rose-50 border border-rose-200 rounded-lg"><span class="font-mono font-bold">${esc(s.tracking)}</span><br>${esc(itemsText(s.items))}</div>`).join('') : '<p class="text-emerald-600 font-bold p-3 text-center">✅ ขึ้นรถครบทุกกล่องแล้ว</p>';
+  $('missingModal').classList.remove('hidden');
+}
+
+// ---------- LIST ----------
+function renderScanList() {
+  const q = ($('searchListInput').value || '').toLowerCase(), pf = $('filterPlatform').value, lf = $('filterLoaded').value;
+  $('listDateSubtext').textContent = thaiDate(dateKey()) + ` • ${todayScans().length} กล่อง`;
+  const rows = [];
+  state.scans.forEach((s, idx) => {
+    if (s.date !== dateKey()) return;
+    if (pf !== 'ALL' && s.platform !== pf) return;
+    if (lf === 'NOT' && s.loaded) return; if (lf === 'LOADED' && !s.loaded) return;
+    const hay = (s.tracking + ' ' + s.orderNo + ' ' + itemsText(s.items) + ' ' + s.recipient + ' ' + s.destination).toLowerCase();
+    if (q && !hay.includes(q)) return;
+    rows.push({ s, idx });
+  });
+  rows.reverse();
+  $('scannedListContainer').innerHTML = rows.length ? rows.map(({ s, idx }) => `
+    <div class="bg-white rounded-xl p-2.5 shadow-sm border ${s.inMaster ? 'border-slate-200' : 'border-amber-300'}">
+      <div class="flex items-center justify-between gap-1">
+        <div class="flex items-center gap-1 flex-wrap">${platformBadge(s.platform)} ${courierBadge(s.courier)}
+          ${s.handoverId ? '<span class="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 rounded font-bold">ส่งมอบแล้ว</span>' : s.loaded ? '<span class="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 rounded font-bold">ขึ้นรถแล้ว</span>' : '<span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 rounded">รอขึ้นรถ</span>'}
+          ${s.inMaster ? '' : '<span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 rounded font-bold">นอกไฟล์</span>'}</div>
+        <span class="text-[10px] text-slate-400">${timeStr(s.time)}</span>
+      </div>
+      <p class="font-mono text-xs font-bold mt-1">${esc(s.tracking)}</p>
+      <p class="text-sm font-bold text-slate-800 leading-snug">${esc(itemsText(s.items))}</p>
+      <p class="text-[11px] text-emerald-800">${esc(s.destination || '')}</p>
+      <div class="flex gap-3 mt-1 text-[11px]">
+        <button onclick="editScanByIndex(${idx})" class="text-indigo-600 font-semibold">✏️ แก้ไข</button>
+        <button onclick="openBigTagFor(${idx})" class="text-indigo-600 font-semibold">🏷️ Big Tag</button>
+        <button onclick="deleteScan(${idx})" class="text-rose-500 font-semibold ml-auto">🗑️ ลบ</button>
+      </div>
+    </div>`).join('') : '<p class="text-center text-xs text-slate-400 py-8">ยังไม่มีรายการ</p>';
+}
+function deleteScan(idx) { const s = state.scans[idx]; if (!s || !confirm('ลบรายการ ' + s.tracking + ' ?')) return; state.scans.splice(idx, 1); persist(); refreshAll(); renderScanList(); }
+function clearTodayData() {
+  if (!confirm('ล้างรายการแพ็คและการส่งมอบของวันนี้ทั้งหมด?')) return;
+  const k = dateKey(); state.scans = state.scans.filter(s => s.date !== k); state.handovers = state.handovers.filter(h => h.date !== k);
+  persist(); refreshAll(); renderScanList();
+}
+
+// ---------- BIG TAG ----------
+function bigTagHTML(r, preview) {
+  const c = COURIERS[r.courier] || COURIERS.OTHER; const items = r.items.length ? r.items : [{ name: '', variant: '', qty: 1 }];
+  const main = items[0]; const extra = items.length > 1 ? ` (+อีก ${items.length - 1} รายการ)` : '';
+  if (preview) return `
+    <div class="flex justify-between items-center border-b-2 border-slate-900 pb-1"><span class="text-lg font-black px-2 rounded" style="background:${c.bg};color:${c.fg}">${esc(c.short)}</span><span class="text-sm font-black">${esc(r.platform === 'Other' ? '' : r.platform.toUpperCase())}</span></div>
+    <p class="text-[10px] text-slate-500">สินค้าข้างใน:</p><p class="text-xl font-black leading-tight">${esc(main.name || '-')}${esc(extra)}</p>
+    <div class="flex justify-between items-end"><span class="text-lg font-black border-2 border-slate-900 px-2 rounded">${colorSwatches(main.variant)} ${esc(main.variant || '-')}</span><span class="text-4xl font-black">×${esc(totalQty(items))}</span></div>
+    <p class="text-base font-black text-emerald-800">📍 ${esc(r.destination || '-')}</p>
+    <div class="flex justify-between text-[11px] font-mono border-t border-slate-300 pt-1"><span>${esc(r.tracking)}</span><span>${esc(r.orderNo || '')}</span></div>`;
+  return `<div class="bt-page">
+    <div class="bt-head"><span class="bt-courier">${esc(c.short)}</span><span class="bt-platform">${esc(r.platform === 'Other' ? '' : r.platform.toUpperCase())}</span></div>
+    <div class="bt-label">สินค้าข้างใน</div><div class="bt-product" style="font-size:${(main.name||'').length > 45 ? 24 : (main.name||'').length > 28 ? 29 : 36}pt">${esc(main.name || '-')}${esc(extra)}</div>
+    <div class="bt-dest">📍 ${esc(r.destination || '')}</div>
+    <div class="bt-row"><span class="bt-variant">${esc(main.variant || '-')}</span><span class="bt-qty">×${esc(totalQty(items))}</span></div>
+    <div class="bt-foot"><span>${esc(r.tracking)}</span><span>${esc(r.orderNo || '')}</span></div></div>`;
+}
+function openBigTagModal() { if (!state.pending) return; showBigTag(state.pending); }
+function openBigTagFor(idx) { const r = state.scans[idx]; if (r) showBigTag(r); }
+function showBigTag(r) { bigTagRecord = r; $('bigTagPreview').innerHTML = bigTagHTML(r, true); $('bigTagModal').classList.remove('hidden'); }
+function closeBigTagModal() { $('bigTagModal').classList.add('hidden'); }
+function printBigTags(list) { if (!list || !list.length || !list[0]) return; $('printArea').innerHTML = list.map(r => bigTagHTML(r, false)).join(''); setTimeout(() => window.print(), 50); }
+function printAllBigTags() { const l = todayScans(); if (!l.length) return showToast('ยังไม่มีรายการวันนี้', 'amber'); if (confirm(`พิมพ์ Big Tag ${l.length} ใบ?`)) printBigTags(l); }
+
+// ---------- HANDOVER ----------
+function handoverSets(c) {
+  const list = todayScans().filter(s => s.courier === c && !s.handoverId);
+  return { list, loaded: list.filter(s => s.loaded), missing: list.filter(s => !s.loaded) };
+}
+function updateHandoverPreview() {
+  const c = $('handoverCourierSelect').value; const { list, loaded, missing } = handoverSets(c);
+  $('hoPacked').textContent = list.length; $('hoLoaded').textContent = loaded.length; $('hoMissing').textContent = missing.length;
+  $('hoMissingList').classList.toggle('hidden', !missing.length || !loaded.length);
+  $('hoMissingList').innerHTML = '<b class="text-rose-700">ยังไม่สแกนขึ้นรถ:</b><br>' + missing.map(s => esc(s.tracking) + ' — ' + esc(itemsText(s.items))).join('<br>');
+  const dc = $('handoverDriverCount').value; const base = loaded.length || list.length;
+  if (dc === '') $('hoDiffText').textContent = '';
+  else { const d = Number(dc) - base; $('hoDiffText').innerHTML = d === 0 ? '<span class="text-emerald-600">✅ ยอดตรงกัน ' + base + ' กล่อง</span>' : `<span class="text-rose-600">⚠️ ยอดไม่ตรง: คนขับนับ ${dc} / ระบบ ${base} (ต่าง ${d > 0 ? '+' : ''}${d})</span>`; }
+}
+function handleTruckPhoto(input) {
+  const f = input.files && input.files[0]; if (!f) return;
+  const img = new Image(); const url = URL.createObjectURL(f);
+  img.onload = () => {
+    const max = 720, sc = Math.min(1, max / Math.max(img.width, img.height));
+    const cv = document.createElement('canvas'); cv.width = img.width * sc; cv.height = img.height * sc;
+    const ctx = cv.getContext('2d'); ctx.drawImage(img, 0, 0, cv.width, cv.height);
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(0, cv.height - 28, cv.width, 28); ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif';
+    ctx.fillText(new Date().toLocaleString('th-TH') + ' • ' + COURIERS[$('handoverCourierSelect').value].name, 8, cv.height - 9);
+    state.truckPhoto = cv.toDataURL('image/jpeg', 0.7); URL.revokeObjectURL(url);
+    $('truckPhotoImg').src = state.truckPhoto; $('truckPhotoPreview').classList.remove('hidden');
+  };
+  img.src = url;
+}
+function dataURLtoFile(d, name) { const [h, b] = d.split(','); const bin = atob(b); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); return new File([arr], name, { type: h.match(/:(.*?);/)[1] }); }
+
+async function saveAndShareHandover() {
+  const c = $('handoverCourierSelect').value; const { list, loaded, missing } = handoverSets(c);
+  if (!list.length) return showToast('ไม่มีกล่องของขนส่งนี้ที่รอส่งมอบ', 'amber');
+  // ถ้ามีการสแกนขึ้นรถ → ส่งมอบเฉพาะที่ขึ้นรถแล้ว (กล่องที่ค้างจะรอรอบถัดไป) ; ถ้าไม่ได้ใช้โหมดขึ้นรถ → ส่งมอบทั้งหมด
+  const handed = loaded.length ? loaded : list;
+  const left = loaded.length ? missing : [];
+  if (left.length && !confirm(`⚠️ ยังมี ${left.length} กล่องที่ไม่ได้สแกนขึ้นรถ\nกล่องเหล่านี้จะค้างไว้รอบถัดไป\n\nยืนยันตัดรอบส่งมอบ ${handed.length} กล่อง?`)) return;
+  const id = 'H' + Date.now(); const now = new Date();
+  const h = { id, date: dateKey(), time: now.toISOString(), courier: c, plate: $('handoverPlate').value.trim(), driver: $('handoverDriver').value.trim(),
+    driverCount: $('handoverDriverCount').value === '' ? null : Number($('handoverDriverCount').value),
+    count: handed.length, pieces: handed.reduce((a, s) => a + totalQty(s.items), 0), trackings: handed.map(s => s.tracking), leftover: left.map(s => s.tracking), photo: state.truckPhoto };
+  handed.forEach(s => { s.handoverId = id; });
+  state.handovers.push(h); persist();
+  const text = handoverText(h);
+  state.truckPhoto = null; $('truckPhotoPreview').classList.add('hidden'); $('handoverDriverCount').value = ''; $('truckPhotoInput').value = '';
+  updateHandoverPreview(); renderHandoverHistory(); refreshAll();
+  await shareText(text, h.photo ? dataURLtoFile(h.photo, `handover_${c}_${dateKey()}.jpg`) : null);
+}
+function handoverText(h) {
+  const c = COURIERS[h.courier];
+  let t = `🚚 ส่งมอบขนส่ง — ${state.settings.siteName}\n🗓 ${thaiDate(h.date)} เวลา ${timeStr(h.time).slice(0, 5)} น.\n`;
+  t += `ขนส่ง: ${c.name}\n`; if (h.plate) t += `ทะเบียน: ${h.plate}\n`; if (h.driver) t += `คนขับ: ${h.driver}\n`;
+  t += `━━━━━━━━━━\n✅ ส่งมอบ ${h.count} กล่อง (${h.pieces} ชิ้น)\n`;
+  if (h.driverCount !== null) t += h.driverCount === h.count ? `👍 คนขับนับตรง ${h.driverCount} กล่อง\n` : `⚠️ คนขับนับได้ ${h.driverCount} กล่อง (ต่าง ${h.driverCount - h.count})\n`;
+  if (h.leftover && h.leftover.length) t += `⏳ ค้างรอบถัดไป ${h.leftover.length} กล่อง:\n` + h.leftover.slice(0, 15).map(x => '• ' + x).join('\n') + (h.leftover.length > 15 ? `\n…อีก ${h.leftover.length - 15}` : '') + '\n';
+  t += `\n#PackScanPro`;
+  return t;
+}
+function renderHandoverHistory() {
+  const l = state.handovers.filter(h => h.date === dateKey()).slice().reverse();
+  $('handoverHistoryContainer').innerHTML = l.length ? l.map(h => `
+    <div class="flex gap-2 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+      ${h.photo ? `<img src="${h.photo}" class="w-14 h-14 rounded-lg object-cover">` : ''}
+      <div class="flex-1"><div class="flex items-center gap-1">${courierBadge(h.courier)} <b>${h.count} กล่อง</b> <span class="text-slate-400 ml-auto">${timeStr(h.time).slice(0, 5)}</span></div>
+      <p class="text-[11px] text-slate-500">${esc(h.plate || '')} ${esc(h.driver || '')} ${h.leftover && h.leftover.length ? '• ค้าง ' + h.leftover.length : ''}</p>
+      <button onclick="reshareHandover('${h.id}')" class="text-[11px] text-emerald-700 font-bold">📤 ส่ง LINE อีกครั้ง</button></div>
+    </div>`).join('') : '<p class="text-slate-400">ยังไม่มีการส่งมอบ</p>';
+}
+function reshareHandover(id) { const h = state.handovers.find(x => x.id === id); if (h) shareText(handoverText(h), h.photo ? dataURLtoFile(h.photo, 'handover.jpg') : null); }
+
+async function shareText(text, file) {
+  try {
+    if (navigator.share) {
+      const data = { text };
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) data.files = [file];
+      await navigator.share(data); return;
+    }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(text); } catch (e) {}
+  window.open('https://line.me/R/share?text=' + encodeURIComponent(text), '_blank');
+}
+
+// ---------- REPORT ----------
+function fillReportDates() {
+  const days = [...new Set(state.scans.map(s => s.date).concat([dateKey()]))].sort().reverse();
+  const cur = $('reportDateSelect').value || dateKey();
+  $('reportDateSelect').innerHTML = days.map(d => `<option value="${d}" ${d === cur ? 'selected' : ''}>${thaiDate(d)}</option>`).join('');
+}
+function reportData(day) {
+  const l = state.scans.filter(s => s.date === day);
+  const byP = { Shopee: 0, Lazada: 0, TikTok: 0, Other: 0 }; const byC = {}; const byProd = {};
+  l.forEach(s => {
+    byP[s.platform] = (byP[s.platform] || 0) + 1;
+    byC[s.courier] = byC[s.courier] || { packed: 0, loaded: 0, handed: 0 };
+    byC[s.courier].packed++; if (s.loaded) byC[s.courier].loaded++; if (s.handoverId) byC[s.courier].handed++;
+    s.items.forEach(i => { const k = (i.name || '(ไม่ระบุ)') + (i.variant ? ' [' + i.variant + ']' : ''); byProd[k] = (byProd[k] || 0) + Number(i.qty || 0); });
+  });
+  return { l, byP, byC, byProd, pieces: l.reduce((a, s) => a + totalQty(s.items), 0) };
+}
+function renderReport() {
+  const day = $('reportDateSelect').value || dateKey(); const r = reportData(day);
+  $('repTotalNumber').textContent = r.l.length; $('repTotalPieces').textContent = r.pieces;
+  $('repShopeeCount').textContent = r.byP.Shopee; $('repLazadaCount').textContent = r.byP.Lazada; $('repTiktokCount').textContent = r.byP.TikTok; $('repOtherCount').textContent = r.byP.Other;
+  const cs = Object.entries(r.byC).sort((a, b) => b[1].packed - a[1].packed);
+  $('courierBreakdownList').innerHTML = cs.length ? cs.map(([c, v]) => `<div class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100">
+      <span>${courierBadge(c)} <span class="font-semibold">${esc(COURIERS[c].name)}</span></span>
+      <span class="font-mono text-[11px]"><b class="text-indigo-700">${v.packed}</b> / <span class="text-emerald-600">${v.loaded}</span> / <span class="text-slate-600">${v.handed}</span>${v.packed - v.handed > 0 ? ` <span class="text-rose-600 font-bold">ค้าง ${v.packed - v.handed}</span>` : ' ✅'}</span></div>`).join('') : '<p class="text-slate-400">ไม่มีข้อมูล</p>';
+  const ps = Object.entries(r.byProd).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  $('productBreakdownList').innerHTML = ps.length ? ps.map(([n, q]) => `<div class="flex justify-between gap-2"><span class="truncate">${esc(n)}</span><b class="whitespace-nowrap">${q} ชิ้น</b></div>`).join('') : '<p class="text-slate-400">ไม่มีข้อมูล</p>';
+  // ออเดอร์ในไฟล์ที่ยังไม่ได้แพ็ค (เฉพาะวันนี้)
+  const box = $('pendingMasterBox');
+  if (day === dateKey()) {
+    const packed = new Set(state.scans.map(s => s.tracking));
+    const notPacked = Object.values(state.master).filter(m => !packed.has(m.tracking));
+    box.classList.toggle('hidden', !notPacked.length || !Object.keys(state.master).length);
+    box.innerHTML = `<b class="text-rose-700">⏳ ออเดอร์ในไฟล์ที่ยังไม่ได้แพ็ค: ${notPacked.length}</b><div class="max-h-32 overflow-y-auto mt-1 font-mono text-[11px]">${notPacked.slice(0, 100).map(m => esc(m.tracking) + ' — ' + esc(itemsText(m.items))).join('<br>')}</div>`;
+  } else box.classList.add('hidden');
+}
+function summaryText(day) {
+  day = day || $('reportDateSelect').value || dateKey(); const r = reportData(day);
+  let t = `📊 สรุปยอดแพ็คออนไลน์ — ${state.settings.siteName}\n🗓 ${thaiDate(day)} (ณ ${timeStr(new Date().toISOString()).slice(0, 5)} น.)\n━━━━━━━━━━\n`;
+  t += `📦 รวม ${r.l.length} กล่อง / ${r.pieces} ชิ้น\n🟠 Shopee ${r.byP.Shopee}\n🔵 Lazada ${r.byP.Lazada}\n⚫ TikTok ${r.byP.TikTok}\n`; if (r.byP.Other) t += `⚪ อื่นๆ ${r.byP.Other}\n`;
+  t += `━━━━━━━━━━\n🚚 แยกขนส่ง (แพ็ค/ส่งมอบ)\n`;
+  Object.entries(r.byC).sort((a, b) => b[1].packed - a[1].packed).forEach(([c, v]) => { t += `• ${COURIERS[c].name}: ${v.packed}/${v.handed}${v.packed - v.handed ? ' ⚠️ค้าง ' + (v.packed - v.handed) : ' ✅'}\n`; });
+  const ps = Object.entries(r.byProd).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  if (ps.length) { t += `━━━━━━━━━━\n🏆 สินค้าขายดี\n`; ps.forEach(([n, q], i) => { t += `${i + 1}. ${n} — ${q} ชิ้น\n`; }); }
+  if (day === dateKey() && Object.keys(state.master).length) {
+    const packed = new Set(state.scans.map(s => s.tracking)); const np = Object.values(state.master).filter(m => !packed.has(m.tracking)).length;
+    if (np) t += `━━━━━━━━━━\n⏳ ออเดอร์ในไฟล์ที่ยังไม่แพ็ค: ${np}\n`;
+  }
+  const noM = r.l.filter(s => !s.inMaster).length; if (noM) t += `⚠️ กล่องที่ไม่อยู่ในไฟล์ออเดอร์: ${noM}\n`;
+  return t + '\n#PackScanPro';
+}
+function shareReportToLine() { shareText(summaryText()); }
+async function copySummaryText() { try { await navigator.clipboard.writeText(summaryText()); showToast('📋 คัดลอกแล้ว นำไปวางใน LINE ได้เลย', 'green'); } catch (e) { prompt('คัดลอกข้อความนี้:', summaryText()); } }
+function exportToCSV() {
+  const day = $('reportDateSelect').value || dateKey(); const l = state.scans.filter(s => s.date === day);
+  if (!l.length) return showToast('ไม่มีข้อมูลวันนี้', 'amber');
+  const hdr = ['วันที่', 'เวลาแพ็ค', 'เลขพัสดุ', 'เลขออเดอร์', 'ช่องทาง', 'ขนส่ง', 'สินค้า', 'ตัวเลือก/สี', 'จำนวน', 'ผู้รับ', 'ปลายทาง', 'อยู่ในไฟล์ออเดอร์', 'เวลาขึ้นรถ', 'รอบส่งมอบ', 'ทะเบียนรถ'];
+  const rows = [hdr];
+  l.forEach(s => s.items.forEach(i => {
+    const h = s.handoverId ? state.handovers.find(x => x.id === s.handoverId) : null;
+    rows.push([s.date, timeStr(s.time), s.tracking, s.orderNo, s.platform, COURIERS[s.courier].name, i.name, i.variant, i.qty, s.recipient, s.destination, s.inMaster ? 'Y' : 'N', s.loaded ? timeStr(s.loaded) : '', h ? timeStr(h.time).slice(0, 5) : '', h ? h.plate : '']);
+  }));
+  const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = `PackScan_${day}.csv`; a.click();
+}
+
+// ---------- MASTER IMPORT ----------
+const COLS = {
+  tracking: { eq: ['หมายเลขติดตามพัสดุ', 'เลขพัสดุ', 'trackingnumber', 'trackingid', 'trackingcode', 'trackingno', 'หมายเลขพัสดุ', 'เลขติดตามพัสดุ', 'awb'], inc: ['tracking', 'ติดตามพัสดุ', 'เลขพัสดุ'] },
+  orderNo: { eq: ['หมายเลขคำสั่งซื้อ', 'orderid', 'ordernumber', 'orderno', 'เลขออเดอร์', 'เลขที่คำสั่งซื้อ'], inc: ['คำสั่งซื้อ', 'orderid', 'ordernumber'], ex: ['สถานะ', 'status', 'วันที่', 'date', 'time', 'type', 'ประเภท', 'item'] },
+  name: { eq: ['ชื่อสินค้า', 'productname', 'itemname', 'product', 'สินค้า'], inc: ['ชื่อสินค้า', 'productname', 'itemname'], ex: ['sku', 'อ้างอิง', 'id', 'รหัส'] },
+  variant: { eq: ['ชื่อตัวเลือก', 'ตัวเลือกสินค้า', 'variation', 'variationname', 'variant', 'ตัวเลือก', 'skuname'], inc: ['ตัวเลือก', 'variation', 'variant'], ex: ['จัดส่ง', 'shipping', 'อ้างอิง', 'sku id', 'id'] },
+  qty: { eq: ['จำนวน', 'quantity', 'qty', 'จำนวนสินค้า', 'จำนวนที่สั่ง'], inc: ['จำนวน', 'quantity'], ex: ['คืน', 'ยกเลิก', 'return', 'cancel', 'ส่วนลด', 'ราคา', 'price'] },
+  recipient: { eq: ['ชื่อผู้รับ', 'recipient', 'recipientname', 'receivername', 'shippingname', 'customername', 'ผู้รับ'], inc: ['ชื่อผู้รับ', 'recipient', 'receiver'] },
+  province: { eq: ['จังหวัด', 'province', 'state', 'shippingregion'], inc: ['จังหวัด', 'province'] },
+  district: { eq: ['เขต/อำเภอ', 'อำเภอ', 'district', 'shippingcity', 'city'], inc: ['อำเภอ', 'district'] },
+  postcode: { eq: ['รหัสไปรษณีย์', 'zipcode', 'postcode', 'postalcode', 'shippingpostcode'], inc: ['ไปรษณีย์', 'zip', 'postcode'] },
+  address: { eq: ['ที่อยู่ในการจัดส่ง', 'ที่อยู่', 'detailaddress', 'shippingaddress', 'address'], inc: ['ที่อยู่', 'address'] },
+  courier: { eq: ['ตัวเลือกการจัดส่ง', 'บริษัทขนส่ง', 'shippingprovidername', 'shippingprovider', 'deliveryoption', 'shippingoption', 'courier', 'ขนส่ง', 'shipmentprovider'], inc: ['ตัวเลือกการจัดส่ง', 'shippingprovider', 'ขนส่ง', 'courier', 'shipmentprovider'] },
+  note: { eq: ['หมายเหตุจากผู้ซื้อ', 'buyermessage', 'buyernote', 'หมายเหตุ', 'note', 'remark', 'remarks'], inc: ['หมายเหตุ', 'buyermessage', 'note'] },
+};
+const normH = h => String(h || '').toLowerCase().replace(/[\s_*().:\-]/g, '');
+function mapColumns(headers) {
+  const nh = headers.map(normH); const used = new Set(); const map = {};
+  for (const [k, d] of Object.entries(COLS)) { const i = nh.findIndex((h, j) => !used.has(j) && d.eq.map(normH).includes(h)); if (i >= 0) { map[k] = headers[i]; used.add(i); } }
+  for (const [k, d] of Object.entries(COLS)) {
+    if (map[k]) continue;
+    const i = nh.findIndex((h, j) => !used.has(j) && d.inc.some(x => h.includes(normH(x))) && !(d.ex || []).some(x => h.includes(normH(x))));
+    if (i >= 0) { map[k] = headers[i]; used.add(i); }
+  }
+  return map;
+}
+function detectPlatform(fileName, headers, courier) {
+  const p = normalizePlatform(fileName); if (p) return p;
+  const h = headers.map(normH).join('|');
+  if (h.includes('หมายเลขคำสั่งซื้อ') || h.includes('ชื่อตัวเลือก')) return 'Shopee';
+  if (h.includes('shippingprovidername') || h.includes('sellersku') && h.includes('orderid')) return 'TikTok';
+  if (h.includes('ordernumber') && h.includes('trackingcode') || h.includes('lazada')) return 'Lazada';
+  return platformFromCourier(courier);
+}
+async function handleMasterFileUpload(input) {
+  const files = [...(input.files || [])]; input.value = ''; if (!files.length) return;
+  if (typeof XLSX === 'undefined') return showToast('โหลดตัวอ่าน Excel ไม่สำเร็จ (ตรวจอินเทอร์เน็ต)', 'red');
+  const results = [];
+  for (const f of files) {
+    try {
+      const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
+      let added = 0, skipped = 0; const perTrack = {};
+      for (const sn of wb.SheetNames) {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { defval: '', raw: false });
+        if (!rows.length) continue;
+        const headers = Object.keys(rows[0]); const map = mapColumns(headers);
+        if (!map.tracking) continue;
+        rows.forEach(row => {
+          const t = String(row[map.tracking] || '').toUpperCase().replace(/\s+/g, '');
+          if (!/^[A-Z0-9-]{8,30}$/.test(t) || !/\d{4}/.test(t)) { skipped++; return; }
+          const courierRaw = map.courier ? row[map.courier] : '';
+          const courier = normalizeCourier(courierRaw) || guessCourierFromTracking(t);
+          const dest = [map.district ? row[map.district] : '', map.province ? row[map.province] : '', map.postcode ? row[map.postcode] : ''].filter(Boolean).join(' ') || (map.address ? String(row[map.address]).slice(-60) : '');
+          if (!perTrack[t]) perTrack[t] = { tracking: t, orderNo: map.orderNo ? String(row[map.orderNo]) : '', platform: detectPlatform(f.name, headers, courier), courier, items: [],
+            recipient: map.recipient ? String(row[map.recipient]) : '', destination: dest, note: map.note ? String(row[map.note]).trim() : '', source: f.name };
+          perTrack[t].items.push({ name: map.name ? String(row[map.name]).trim() : '', variant: map.variant ? String(row[map.variant]).trim() : '', qty: Math.max(1, parseInt(map.qty ? row[map.qty] : 1) || 1) });
+        });
+      }
+      Object.values(perTrack).forEach(o => {
+        // รวมรายการสินค้าซ้ำ (ชื่อ+ตัวเลือกเดียวกัน)
+        const merged = {}; o.items.forEach(i => { const k = i.name + '|' + i.variant; merged[k] = merged[k] ? (merged[k].qty += i.qty, merged[k]) : { ...i }; });
+        o.items = Object.values(merged); state.master[o.tracking] = o; added++;
+      });
+      results.push(`✅ ${esc(f.name)}: ${added} ออเดอร์${skipped ? ` (ข้าม ${skipped} แถวไม่มีเลขพัสดุ)` : ''}`);
+      if (!added) results[results.length - 1] = `⚠️ ${esc(f.name)}: ไม่พบคอลัมน์เลขพัสดุ / ไม่มีเลขพัสดุ`;
+    } catch (e) { results.push(`❌ ${esc(f.name)}: อ่านไฟล์ไม่ได้ (${esc(e.message)})`); }
+  }
+  persist(); refreshAll(); renderMasterOrderList();
+  $('importResult').innerHTML = results.join('<br>'); $('importResult').classList.remove('hidden');
+}
+function renderMasterOrderList() {
+  const all = Object.values(state.master);
+  $('masterOrderCount').textContent = all.length;
+  $('masterShopeeCount').textContent = all.filter(m => m.platform === 'Shopee').length;
+  $('masterTiktokCount').textContent = all.filter(m => m.platform === 'TikTok').length;
+  $('masterLazadaCount').textContent = all.filter(m => m.platform === 'Lazada').length;
+  const q = ($('searchMasterInput').value || '').toLowerCase(), pf = $('filterMasterPlatform').value;
+  const packed = new Set(state.scans.map(s => s.tracking));
+  const l = all.filter(m => (pf === 'ALL' || m.platform === pf) && (!q || (m.tracking + ' ' + m.orderNo + ' ' + itemsText(m.items) + ' ' + m.recipient).toLowerCase().includes(q)));
+  $('masterSearchCount').textContent = `แสดง ${Math.min(l.length, 200)} / ${l.length}`;
+  $('masterOrdersListContainer').innerHTML = l.slice(0, 200).map(m => `<div class="p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+      <div class="flex items-center gap-1">${platformBadge(m.platform)} ${courierBadge(m.courier)} <span class="font-mono font-bold">${esc(m.tracking)}</span>${packed.has(m.tracking) ? '<span class="ml-auto text-emerald-600 font-bold">✓ แพ็คแล้ว</span>' : ''}</div>
+      <p class="font-semibold mt-0.5">${esc(itemsText(m.items))}</p><p class="text-[11px] text-slate-500">${esc(m.recipient)} • ${esc(m.destination)}</p></div>`).join('') || '<p class="text-center text-slate-400 py-4 text-xs">ยังไม่มีออเดอร์ — โหลดไฟล์ Excel หรือกด “โหลดข้อมูลทดลอง”</p>';
+}
+function clearMasterData() { if (!confirm('ล้างไฟล์ออเดอร์ทั้งหมด? (ประวัติการแพ็คยังอยู่)')) return; state.master = {}; persist(); refreshAll(); renderMasterOrderList(); }
+function loadDemoData() {
+  const demo = [
+    ['TH2647129015684', '2610096JQVAHTS', 'Shopee', 'SPX', 'PST กล่องพลาสติกเก็บของอเนกประสงค์ 70 ลิตร ฝาหน้า', 'สีม่วง', 2, 'คุณสมชาย', 'บึงกุ่ม กรุงเทพมหานคร 10230', 'ขอกล่องแน่นๆ'],
+    ['TH2647129015691', '2610096JQVB001', 'Shopee', 'SPX', 'PST กล่องพลาสติกเก็บของอเนกประสงค์ 70 ลิตร ฝาหน้า', 'สีดำ', 1, 'คุณมาลี', 'เมืองชลบุรี ชลบุรี 20000', ''],
+    ['TH2647129015702', '2610096JQVB002', 'Shopee', 'SPX', 'PST เก้าอี้บันไดพลาสติกเพชรสยาม 2 ชั้น', 'สีเทา', 1, 'คุณวิชัย', 'อินทร์บุรี สิงห์บุรี 16110', ''],
+    ['TH01264E3QWB4A', '2610096JQVB003', 'Shopee', 'FLASH', 'PST ตะกร้าผ้าพลาสติกแอมเบอร์พร้อมฝาปิด Size M', 'สีครีม', 3, 'คุณนภา', 'พระนครศรีอยุธยา 13000', ''],
+    ['812345678901', '577612345678901', 'TikTok', 'JT', 'PST ชั้นวางของอเนกประสงค์ Cooper 3 ชั้น', 'สีขาว', 1, 'คุณกิตติ', 'หาดใหญ่ สงขลา 90110', ''],
+    ['812345678902', '577612345678902', 'TikTok', 'JT', 'PST ถังขยะพลาสติกกลมฝาแบบ PUSH 28 ลิตร', 'สีเขียว', 2, 'คุณปรีชา', 'เมืองเชียงใหม่ เชียงใหม่ 50000', ''],
+    ['KEX1234567890', '577612345678903', 'TikTok', 'KERRY', 'ถังน้ำหูล็อคพร้อมฝา 44 ลิตร', 'สีฟ้า', 1, 'คุณสุดา', 'เมืองขอนแก่น ขอนแก่น 40000', 'ฝากไว้ป้อมยาม'],
+    ['LEXPU0123456789', '1023456789012', 'Lazada', 'LEX', 'ชั้นวางของอเนกประสงค์ Elly 4 ชั้น (ใหญ่)', 'สีน้ำตาล', 1, 'คุณอรุณ', 'บางพลี สมุทรปราการ 10540', ''],
+    ['LEXPU0123456790', '1023456789013', 'Lazada', 'LEX', 'เก้าอี้ญี่ปุ่นสี่เหลี่ยม ขนาดกลาง', 'สีแดง', 4, 'คุณเพ็ญ', 'ปากเกร็ด นนทบุรี 11120', ''],
+    ['TDZ00012345678', '2610096JQVB004', 'Shopee', 'DHL', 'ตู้ใส่เอกสาร 7 ชั้น เพชรสยาม', 'สีใส', 1, 'คุณธนา', 'เมืองระยอง ระยอง 21000', ''],
+  ];
+  demo.forEach(([t, o, p, c, n, v, q, r, d, note]) => { state.master[t] = { tracking: t, orderNo: o, platform: p, courier: c, items: [{ name: n, variant: v, qty: q }], recipient: r, destination: d, note, source: 'demo' }; });
+  state.master['TH2647129015684'].items.push({ name: 'PST เก้าอี้บันไดพลาสติกเพชรสยาม 2 ชั้น', variant: 'สีดำ', qty: 1 });
+  persist(); refreshAll(); renderMasterOrderList();
+  $('importResult').innerHTML = '🧪 โหลดข้อมูลทดลอง 10 ออเดอร์แล้ว — ลองพิมพ์เลข <b class="font-mono">TH2647129015684</b> หรือ <b class="font-mono">812345678901</b> ในแท็บสแกน';
+  $('importResult').classList.remove('hidden');
+}
+
+// ---------- SETTINGS ----------
+function loadSettingsUI() {
+  $('setAutoConfirm').checked = state.settings.autoConfirm; $('setVoice').checked = state.settings.voice;
+  $('setRequireMaster').checked = state.settings.requireMaster; $('setSiteName').value = state.settings.siteName;
+}
+function saveSettings() {
+  state.settings = { autoConfirm: $('setAutoConfirm').checked, voice: $('setVoice').checked, requireMaster: $('setRequireMaster').checked, siteName: $('setSiteName').value.trim() || 'คลังออนไลน์ เพชรสยาม' };
+  lsSet(LS.settings, state.settings);
+}
+
+// ---------- GLOBAL REFRESH ----------
+function refreshAll() {
+  const l = todayScans(); const c = p => l.filter(s => s.platform === p).length;
+  $('headerTotalBadge').textContent = l.length; $('statTotal').textContent = l.length;
+  $('statShopee').textContent = c('Shopee'); $('statLazada').textContent = c('Lazada'); $('statTiktok').textContent = c('TikTok');
+  $('navListBadge').textContent = l.length; $('navListBadge').classList.toggle('hidden', !l.length);
+  updateTruckCounts();
+}
+
+// ---------- INIT ----------
+(function init() {
+  state.master = lsGet(LS.master, {}); state.scans = lsGet(LS.scans, []); state.handovers = lsGet(LS.handovers, []);
+  state.settings = Object.assign(state.settings, lsGet(LS.settings, {}));
+  // เก็บประวัติย้อนหลัง 60 วัน
+  const cut = dateKey(new Date(Date.now() - 60 * 864e5));
+  state.scans = state.scans.filter(s => s.date >= cut); state.handovers = state.handovers.filter(h => h.date >= cut);
+  // รูปส่งมอบเก็บแค่ 7 วัน (ประหยัดพื้นที่)
+  const cutP = dateKey(new Date(Date.now() - 7 * 864e5)); state.handovers.forEach(h => { if (h.date < cutP) h.photo = null; });
+  fillCourierSelects(); renderQuickChips(); loadSettingsUI();
+  state.truckTarget = localStorage.getItem('psp_truck') || 'SPX'; $('truckTargetCourierSelect').value = state.truckTarget;
+  setWorkflowMode('pack'); setScanMode('live'); setBarcodeFormatMode('all'); switchTab('scan');
+  if (!window.isSecureContext && location.protocol === 'http:') {
+    $('httpsWarningBanner').classList.remove('hidden');
+    $('httpsRedirectBtn').href = 'https://' + location.hostname + (location.port ? ':8443' : '') + location.pathname;
+  }
+  refreshAll();
+})();
+</script>
+</body>
+</html>
