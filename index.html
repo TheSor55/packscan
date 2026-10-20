@@ -64,7 +64,7 @@
           <svg class="w-6 h-6 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
         </div>
         <div>
-          <h1 class="text-base font-bold leading-tight flex items-center gap-1.5">PackScan Pro <span class="text-[10px] bg-emerald-500 font-bold px-1.5 rounded">Hybrid</span><span class="text-[9px] text-indigo-200 font-normal">v2.1</span></h1>
+          <h1 class="text-base font-bold leading-tight flex items-center gap-1.5">PackScan Pro <span class="text-[10px] bg-emerald-500 font-bold px-1.5 rounded">Hybrid</span><span class="text-[9px] text-indigo-200 font-normal">v2.2</span></h1>
           <p class="text-[11px] text-indigo-200">เพชรสยาม (PST) • แพ็ค • ขึ้นรถ • ส่งมอบ</p>
         </div>
       </div>
@@ -365,6 +365,7 @@
             <div class="bg-white/80 py-1 rounded-lg"><span class="text-[10px] text-slate-700 block font-bold">TikTok</span><span id="masterTiktokCount" class="font-black">0</span></div>
             <div class="bg-white/80 py-1 rounded-lg"><span class="text-[10px] text-blue-600 block font-bold">Lazada</span><span id="masterLazadaCount" class="font-black">0</span></div>
           </div>
+          <div id="masterCourierChips" class="flex flex-wrap gap-1 pt-1"></div>
         </div>
 
         <label for="orderFileInput" class="block border-2 border-dashed border-indigo-300 bg-indigo-50/30 rounded-xl p-4 text-center cursor-pointer">
@@ -382,7 +383,7 @@
           <div class="flex gap-2">
             <input type="text" id="searchMasterInput" oninput="renderMasterOrderList()" placeholder="🔍 เลขพัสดุ / ออเดอร์ / สินค้า..." class="flex-1 min-w-0 text-xs p-2.5 rounded-xl border border-slate-300 bg-slate-50">
             <select id="filterMasterPlatform" onchange="renderMasterOrderList()" class="text-xs p-2 rounded-xl border border-slate-300 bg-slate-50">
-              <option value="ALL">ทั้งหมด</option><option>Shopee</option><option>TikTok</option><option>Lazada</option>
+              <option value="ALL">ทั้งหมด</option><option>Shopee</option><option>TikTok</option><option>Lazada</option><option value="Other">อื่นๆ</option>
             </select>
           </div>
           <div id="masterOrdersListContainer" class="space-y-2 max-h-80 overflow-y-auto pr-1"></div>
@@ -393,6 +394,7 @@
           <div class="space-y-2 mt-2">
             <label class="flex items-center gap-2"><input type="checkbox" id="setAutoConfirm" onchange="saveSettings()" class="w-4 h-4"> สแกนกล่องถัดไป = ยืนยันกล่องก่อนหน้าอัตโนมัติ</label>
             <label class="flex items-center gap-2"><input type="checkbox" id="setVoice" onchange="saveSettings()" class="w-4 h-4"> เสียงพูดภาษาไทยเตือน (ผิดคัน / สแกนซ้ำ)</label>
+            <button onclick="clearSavedColumnMaps()" class="text-[11px] text-indigo-700 font-bold bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-lg">🧩 ล้างการจับคอลัมน์ที่บันทึกไว้</button>
             <label class="flex items-center gap-2"><input type="checkbox" id="setRequireMaster" onchange="saveSettings()" class="w-4 h-4"> เตือนแรงเมื่อเลขพัสดุไม่อยู่ในไฟล์ออเดอร์</label>
             <div>
               <label class="block mb-1">ชื่อหน้างาน/คลัง (แสดงในรายงาน LINE):</label>
@@ -466,6 +468,23 @@
       <div class="pt-1 flex gap-2">
         <button onclick="saveEditedItem()" class="flex-1 bg-indigo-600 text-white font-bold py-2.5 rounded-xl text-sm">💾 บันทึก</button>
         <button onclick="closeEditItemModal()" class="px-4 bg-slate-100 font-semibold py-2.5 rounded-xl text-sm">ยกเลิก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== COLUMN MAPPER MODAL ===== -->
+  <div id="colMapModal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-3">
+    <div class="bg-white w-full max-w-md rounded-2xl p-4 space-y-2 shadow-2xl max-h-[92vh] flex flex-col">
+      <div class="border-b pb-2">
+        <h3 class="font-bold text-sm">🧩 เลือกคอลัมน์ของไฟล์นี้ (ทำครั้งเดียว ระบบจำไว้)</h3>
+        <p class="text-[11px] text-slate-500 font-mono break-all" id="colMapFile"></p>
+        <p class="text-[11px] text-amber-700 mt-1">ระบบหาคอลัมน์ไม่ครบ — เลือกว่าคอลัมน์ไหนคือข้อมูลอะไร (ดูตัวอย่างข้อมูลด้านล่าง)</p>
+      </div>
+      <div class="overflow-y-auto space-y-1.5" id="colMapFields"></div>
+      <div class="overflow-x-auto border rounded-lg p-1 max-h-28" id="colMapPreview"></div>
+      <div class="flex gap-2 pt-1">
+        <button id="colMapOk" class="flex-1 bg-indigo-600 text-white font-bold py-2.5 rounded-xl text-sm">💾 บันทึกและนำเข้า</button>
+        <button id="colMapSkip" class="px-4 bg-slate-100 font-semibold py-2.5 rounded-xl text-sm">ข้ามไฟล์</button>
       </div>
     </div>
   </div>
@@ -1362,37 +1381,125 @@ function exportToCSV() {
 
 // ---------- MASTER IMPORT ----------
 const COLS = {
-  tracking: { eq: ['หมายเลขติดตามพัสดุ', 'เลขพัสดุ', 'trackingnumber', 'trackingid', 'trackingcode', 'trackingno', 'หมายเลขพัสดุ', 'เลขติดตามพัสดุ', 'awb'], inc: ['tracking', 'ติดตามพัสดุ', 'เลขพัสดุ'] },
-  orderNo: { eq: ['หมายเลขคำสั่งซื้อ', 'orderid', 'ordernumber', 'orderno', 'เลขออเดอร์', 'เลขที่คำสั่งซื้อ'], inc: ['คำสั่งซื้อ', 'orderid', 'ordernumber'], ex: ['สถานะ', 'status', 'วันที่', 'date', 'time', 'type', 'ประเภท', 'item'] },
-  name: { eq: ['ชื่อสินค้า', 'productname', 'itemname', 'product', 'สินค้า'], inc: ['ชื่อสินค้า', 'productname', 'itemname'], ex: ['sku', 'อ้างอิง', 'id', 'รหัส'] },
-  variant: { eq: ['ชื่อตัวเลือก', 'ตัวเลือกสินค้า', 'variation', 'variationname', 'variant', 'ตัวเลือก', 'skuname'], inc: ['ตัวเลือก', 'variation', 'variant'], ex: ['จัดส่ง', 'shipping', 'อ้างอิง', 'sku id', 'id'] },
-  qty: { eq: ['จำนวน', 'quantity', 'qty', 'จำนวนสินค้า', 'จำนวนที่สั่ง'], inc: ['จำนวน', 'quantity'], ex: ['คืน', 'ยกเลิก', 'return', 'cancel', 'ส่วนลด', 'ราคา', 'price'] },
-  recipient: { eq: ['ชื่อผู้รับ', 'recipient', 'recipientname', 'receivername', 'shippingname', 'customername', 'ผู้รับ'], inc: ['ชื่อผู้รับ', 'recipient', 'receiver'] },
+  tracking: { eq: ['หมายเลขติดตามพัสดุ', 'เลขพัสดุ', 'trackingnumber', 'trackingid', 'trackingcode', 'trackingno', 'หมายเลขพัสดุ', 'เลขติดตามพัสดุ', 'เลขที่พัสดุ', 'awb', 'awbno', 'waybill', 'waybillno', 'dhlid', 'shipmentid', 'เลขแทร็ค', 'เลขแทรค'], inc: ['tracking', 'ติดตามพัสดุ', 'เลขพัสดุ', 'waybill', 'awb', 'แทร็ค', 'แทรค'] },
+  orderNo: { eq: ['หมายเลขคำสั่งซื้อ', 'orderid', 'ordernumber', 'orderno', 'ordersn', 'เลขออเดอร์', 'เลขที่คำสั่งซื้อ', 'refid', 'referenceno'], inc: ['คำสั่งซื้อ', 'orderid', 'ordernumber', 'ordersn', 'ออเดอร์', 'refid'], ex: ['สถานะ', 'status', 'วันที่', 'date', 'time', 'type', 'ประเภท', 'item', 'ยอด', 'amount'] },
+  productInfo: { eq: ['productinfo', 'ข้อมูลสินค้า', 'รายละเอียดสินค้า', 'iteminfo', 'productdetails'], inc: ['productinfo', 'ข้อมูลสินค้า', 'รายละเอียดสินค้า'] },
+  name: { eq: ['ชื่อสินค้า', 'productname', 'itemname', 'product', 'สินค้า', 'รายการสินค้า', 'description', 'itemdescription', 'skuname'], inc: ['ชื่อสินค้า', 'productname', 'itemname', 'รายการสินค้า'], ex: ['sku', 'อ้างอิง', 'id', 'รหัส', 'ข้อมูล', 'info'] },
+  variant: { eq: ['ชื่อตัวเลือก', 'ตัวเลือกสินค้า', 'variation', 'variationname', 'variant', 'ตัวเลือก', 'สี', 'color', 'colour'], inc: ['ตัวเลือก', 'variation', 'variant'], ex: ['จัดส่ง', 'shipping', 'อ้างอิง', 'sku id', 'id'] },
+  qty: { eq: ['จำนวน', 'quantity', 'qty', 'จำนวนสินค้า', 'จำนวนที่สั่ง', 'pcs', 'ชิ้น'], inc: ['จำนวน', 'quantity', 'qty'], ex: ['คืน', 'ยกเลิก', 'return', 'cancel', 'ส่วนลด', 'ราคา', 'price', 'กล่อง', 'parcel'] },
+  recipient: { eq: ['ชื่อผู้รับ', 'recipient', 'recipientname', 'receivername', 'receiver', 'shippingname', 'customername', 'ผู้รับ', 'consignee', 'consigneename', 'shipto'], inc: ['ชื่อผู้รับ', 'recipient', 'receiver', 'consignee', 'ผู้รับ'], ex: ['เบอร์', 'phone', 'tel', 'ที่อยู่', 'address'] },
   province: { eq: ['จังหวัด', 'province', 'state', 'shippingregion'], inc: ['จังหวัด', 'province'] },
-  district: { eq: ['เขต/อำเภอ', 'อำเภอ', 'district', 'shippingcity', 'city'], inc: ['อำเภอ', 'district'] },
-  postcode: { eq: ['รหัสไปรษณีย์', 'zipcode', 'postcode', 'postalcode', 'shippingpostcode'], inc: ['ไปรษณีย์', 'zip', 'postcode'] },
-  address: { eq: ['ที่อยู่ในการจัดส่ง', 'ที่อยู่', 'detailaddress', 'shippingaddress', 'address'], inc: ['ที่อยู่', 'address'] },
-  courier: { eq: ['ตัวเลือกการจัดส่ง', 'บริษัทขนส่ง', 'shippingprovidername', 'shippingprovider', 'deliveryoption', 'shippingoption', 'courier', 'ขนส่ง', 'shipmentprovider'], inc: ['ตัวเลือกการจัดส่ง', 'shippingprovider', 'ขนส่ง', 'courier', 'shipmentprovider'] },
-  note: { eq: ['หมายเหตุจากผู้ซื้อ', 'buyermessage', 'buyernote', 'หมายเหตุ', 'note', 'remark', 'remarks'], inc: ['หมายเหตุ', 'buyermessage', 'note'] },
+  district: { eq: ['เขต/อำเภอ', 'อำเภอ', 'เขต', 'district', 'shippingcity', 'city'], inc: ['อำเภอ', 'district'] },
+  postcode: { eq: ['รหัสไปรษณีย์', 'zipcode', 'postcode', 'postalcode', 'shippingpostcode', 'zip'], inc: ['ไปรษณีย์', 'zip', 'postcode', 'postal'] },
+  address: { eq: ['ที่อยู่ในการจัดส่ง', 'ที่อยู่', 'ที่อยู่ผู้รับ', 'detailaddress', 'shippingaddress', 'address', 'receiveraddress', 'consigneeaddress'], inc: ['ที่อยู่', 'address'], ex: ['ผู้ส่ง', 'sender', 'email'] },
+  courier: { eq: ['ตัวเลือกการจัดส่ง', 'บริษัทขนส่ง', 'shippingprovidername', 'shippingprovider', 'deliveryoption', 'shippingoption', 'courier', 'ขนส่ง', 'shipmentprovider', 'carrier', 'logistics'], inc: ['ตัวเลือกการจัดส่ง', 'shippingprovider', 'ขนส่ง', 'courier', 'shipmentprovider', 'carrier'] },
+  note: { eq: ['หมายเหตุจากผู้ซื้อ', 'buyermessage', 'buyernote', 'หมายเหตุ', 'note', 'remark', 'remarks'], inc: ['หมายเหตุ', 'buyermessage', 'note', 'remark'] },
 };
-const normH = h => String(h || '').toLowerCase().replace(/[\s_*().:\-]/g, '');
+const FIELD_LABELS = { tracking: 'เลขพัสดุ (จำเป็น)', orderNo: 'เลขออเดอร์', name: 'ชื่อสินค้า', variant: 'ตัวเลือก / สี', qty: 'จำนวน', productInfo: 'ข้อมูลสินค้ารวม (Shopee product_info)', recipient: 'ชื่อผู้รับ', address: 'ที่อยู่', district: 'อำเภอ / เขต', province: 'จังหวัด', postcode: 'รหัสไปรษณีย์', courier: 'ขนส่ง', note: 'หมายเหตุลูกค้า' };
+const normH = h => String(h || '').toLowerCase().replace(/[\s_*().:\-#\/]/g, '');
+const isTrackingLike = v => { const t = String(v || '').toUpperCase().replace(/\s+/g, ''); return /^[A-Z0-9-]{8,30}$/.test(t) && /\d{4}/.test(t) && !/^\d{1,2}[-\/]\d/.test(t); };
+// คืนค่า map = { field: columnIndex }
 function mapColumns(headers) {
   const nh = headers.map(normH); const used = new Set(); const map = {};
-  for (const [k, d] of Object.entries(COLS)) { const i = nh.findIndex((h, j) => !used.has(j) && d.eq.map(normH).includes(h)); if (i >= 0) { map[k] = headers[i]; used.add(i); } }
+  for (const [k, d] of Object.entries(COLS)) { const eq = d.eq.map(normH); const i = nh.findIndex((h, j) => h && !used.has(j) && eq.includes(h)); if (i >= 0) { map[k] = i; used.add(i); } }
   for (const [k, d] of Object.entries(COLS)) {
-    if (map[k]) continue;
-    const i = nh.findIndex((h, j) => !used.has(j) && d.inc.some(x => h.includes(normH(x))) && !(d.ex || []).some(x => h.includes(normH(x))));
-    if (i >= 0) { map[k] = headers[i]; used.add(i); }
+    if (map[k] !== undefined) continue;
+    const i = nh.findIndex((h, j) => h && !used.has(j) && d.inc.some(x => h.includes(normH(x))) && !(d.ex || []).some(x => h.includes(normH(x))));
+    if (i >= 0) { map[k] = i; used.add(i); }
   }
   return map;
+}
+// หาแถวหัวตาราง (บางไฟล์มีหัวรายงาน/โลโก้ด้านบนก่อนหัวคอลัมน์)
+function findHeaderRow(aoa) {
+  let best = -1, bs = 0;
+  for (let r = 0; r < Math.min(30, aoa.length); r++) {
+    const m = mapColumns((aoa[r] || []).map(x => String(x ?? '')));
+    const sc = Object.keys(m).length + (m.tracking !== undefined ? 3 : 0);
+    if (sc > bs) { bs = sc; best = r; }
+  }
+  return bs >= 3 ? best : -1;
+}
+// ไม่มีหัวคอลัมน์เลขพัสดุ → ดูจาก "ค่าในคอลัมน์" ว่าคอลัมน์ไหนเป็นเลขพัสดุ
+function trackingColByContent(aoa, start) {
+  const cnt = {};
+  aoa.slice(start, start + 300).forEach(row => (row || []).forEach((v, i) => { if (isTrackingLike(v) && guessCourierFromTracking(String(v).toUpperCase().replace(/\s+/g, '')) !== 'OTHER') cnt[i] = (cnt[i] || 0) + 1; }));
+  let bi = -1, bc = 1; Object.entries(cnt).forEach(([i, c]) => { if (c > bc) { bc = c; bi = Number(i); } });
+  return bi;
+}
+// Shopee "product_info": "[1] ชื่อสินค้า:...; ชื่อตัวเลือก:...; ราคา: ฿ 199; จำนวน: 2; ..." หรือภาษาอังกฤษ Product Name / Variation Name / Quantity
+function parseProductInfo(text) {
+  const parts = String(text || '').split(/\[\d+\]/).map(s => s.trim()).filter(Boolean);
+  return parts.map(p => {
+    const get = re => { const m = p.match(re); return m ? m[1].trim() : ''; };
+    return { name: get(/(?:ชื่อสินค้า|Product Name)\s*[:：]\s*([^;]+)/i) || p.split(';')[0].replace(/^[^:]*:/, '').trim(),
+      variant: get(/(?:ชื่อตัวเลือก|Variation Name)\s*[:：]\s*([^;]*)/i), qty: Math.max(1, parseInt(get(/(?:จำนวน|Quantity)\s*[:：]\s*(\d+)/i)) || 1) };
+  }).filter(i => i.name);
 }
 function detectPlatform(fileName, headers, courier) {
   const p = normalizePlatform(fileName); if (p) return p;
   const h = headers.map(normH).join('|');
-  if (h.includes('หมายเลขคำสั่งซื้อ') || h.includes('ชื่อตัวเลือก')) return 'Shopee';
+  if (h.includes('หมายเลขคำสั่งซื้อ') || h.includes('ชื่อตัวเลือก') || h.includes('productinfo') || h.includes('ordersn')) return 'Shopee';
   if (h.includes('shippingprovidername') || h.includes('sellersku') && h.includes('orderid')) return 'TikTok';
   if (h.includes('ordernumber') && h.includes('trackingcode') || h.includes('lazada')) return 'Lazada';
   return platformFromCourier(courier);
+}
+const colLetter = i => { let s = ''; i++; while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+const headerSig = headers => headers.map(normH).join('|');
+function savedMaps() { return lsGet('psp_colmaps_v1', {}); }
+
+// ---- หน้าต่างจับคอลัมน์เอง (ใช้เมื่อระบบหาไม่เจอ / ไฟล์รูปแบบใหม่) — จำไว้ใช้ครั้งต่อไปอัตโนมัติ ----
+function openColumnMapper(fileName, headers, sample, map) {
+  return new Promise(resolve => {
+    const opts = ['<option value="">— ไม่มี —</option>'].concat(headers.map((h, i) => `<option value="${i}">${esc(colLetter(i))}: ${esc(String(h || '').slice(0, 30) || '(ไม่มีหัว)')}${sample[0] && sample[0][i] !== undefined && String(sample[0][i]).trim() ? ' — ' + esc(String(sample[0][i]).slice(0, 24)) : ''}</option>`)).join('');
+    $('colMapFile').textContent = fileName;
+    $('colMapFields').innerHTML = Object.keys(FIELD_LABELS).map(k => `<div class="grid grid-cols-5 gap-2 items-center"><label class="col-span-2 text-[11px] font-bold ${k === 'tracking' ? 'text-rose-700' : ''}">${FIELD_LABELS[k]}</label><select data-f="${k}" class="col-span-3 text-xs p-1.5 border border-slate-300 rounded-lg">${opts}</select></div>`).join('');
+    $('colMapFields').querySelectorAll('select').forEach(s => { const v = map[s.dataset.f]; s.value = v === undefined ? '' : String(v); });
+    $('colMapPreview').innerHTML = '<table class="text-[10px] border-collapse"><tr>' + headers.map((h, i) => `<th class="border px-1 bg-slate-100 whitespace-nowrap">${colLetter(i)} ${esc(String(h || '').slice(0, 14))}</th>`).join('') + '</tr>' + sample.slice(0, 3).map(r => '<tr>' + headers.map((_, i) => `<td class="border px-1 whitespace-nowrap">${esc(String(r[i] ?? '').slice(0, 18))}</td>`).join('') + '</tr>').join('') + '</table>';
+    $('colMapModal').classList.remove('hidden');
+    $('colMapOk').onclick = () => {
+      const m = {}; $('colMapFields').querySelectorAll('select').forEach(s => { if (s.value !== '') m[s.dataset.f] = Number(s.value); });
+      if (m.tracking === undefined) { showToast('ต้องเลือกคอลัมน์เลขพัสดุ', 'red'); return; }
+      $('colMapModal').classList.add('hidden'); resolve(m);
+    };
+    $('colMapSkip').onclick = () => { $('colMapModal').classList.add('hidden'); resolve(null); };
+  });
+}
+function clearSavedColumnMaps() { lsSet('psp_colmaps_v1', {}); showToast('ล้างการจับคอลัมน์ที่บันทึกไว้แล้ว — นำเข้าไฟล์ใหม่ระบบจะถามอีกครั้ง', 'green'); }
+
+async function importSheet(fileName, aoa, perTrack, stat) {
+  aoa = aoa.filter(r => r && r.some(v => String(v ?? '').trim() !== ''));
+  if (!aoa.length) return;
+  let hr = findHeaderRow(aoa);
+  let headers = hr >= 0 ? aoa[hr].map(x => String(x ?? '').trim()) : (aoa[0] || []).map(() => '');
+  const width = Math.max(...aoa.slice(0, 50).map(r => r.length)); while (headers.length < width) headers.push('');
+  let map = hr >= 0 ? mapColumns(headers) : {};
+  if (map.tracking === undefined) { const c = trackingColByContent(aoa, hr + 1); if (c >= 0) map.tracking = c; }
+  const sig = fileName.replace(/[\d._\s-]+/g, '').toLowerCase() + '#' + headerSig(headers);
+  const saved = savedMaps()[sig];
+  let rows = aoa.slice(hr + 1);
+  if (saved) map = saved;
+  else if (map.tracking === undefined || (map.name === undefined && map.productInfo === undefined)) {
+    // ระบบจับคอลัมน์ไม่ครบ → ให้ผู้ใช้เลือกเอง 1 ครั้ง แล้วจำไว้
+    const m = await openColumnMapper(fileName, headers, rows.filter(r => r.some(v => isTrackingLike(v))).slice(0, 3), map);
+    if (!m) { stat.skippedFile = true; return; }
+    map = m; const all = savedMaps(); all[sig] = m; lsSet('psp_colmaps_v1', all);
+  }
+  if (map.tracking === undefined) return;
+  stat.hasName = stat.hasName || map.name !== undefined || map.productInfo !== undefined;
+  const cell = (r, k) => map[k] === undefined ? '' : String(r[map[k]] ?? '').trim();
+  const fileCourier = normalizeCourier(fileName);
+  rows.forEach(r => {
+    const t = cell(r, 'tracking').toUpperCase().replace(/\s+/g, '');
+    if (!isTrackingLike(t)) { stat.skipped++; return; }
+    const g = guessCourierFromTracking(t);
+    const courier = normalizeCourier(cell(r, 'courier')) || (g !== 'OTHER' ? g : null) || fileCourier || 'OTHER';
+    const dest = [cell(r, 'district'), cell(r, 'province'), cell(r, 'postcode')].filter(Boolean).join(' ') || cell(r, 'address').slice(-60);
+    if (!perTrack[t]) perTrack[t] = { tracking: t, orderNo: cell(r, 'orderNo'), platform: detectPlatform(fileName, headers, courier), courier, items: [],
+      recipient: cell(r, 'recipient'), destination: dest, address: cell(r, 'address'), note: cell(r, 'note'), source: fileName };
+    const info = map.productInfo !== undefined ? parseProductInfo(cell(r, 'productInfo')) : [];
+    if (info.length && map.name === undefined) perTrack[t].items.push(...info);
+    else perTrack[t].items.push({ name: cell(r, 'name'), variant: cell(r, 'variant'), qty: Math.max(1, parseInt(cell(r, 'qty')) || 1) });
+  });
 }
 async function handleMasterFileUpload(input) {
   const files = [...(input.files || [])]; input.value = ''; if (!files.length) return;
@@ -1401,30 +1508,18 @@ async function handleMasterFileUpload(input) {
   for (const f of files) {
     try {
       const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
-      let added = 0, skipped = 0; const perTrack = {};
-      for (const sn of wb.SheetNames) {
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { defval: '', raw: false });
-        if (!rows.length) continue;
-        const headers = Object.keys(rows[0]); const map = mapColumns(headers);
-        if (!map.tracking) continue;
-        rows.forEach(row => {
-          const t = String(row[map.tracking] || '').toUpperCase().replace(/\s+/g, '');
-          if (!/^[A-Z0-9-]{8,30}$/.test(t) || !/\d{4}/.test(t)) { skipped++; return; }
-          const courierRaw = map.courier ? row[map.courier] : '';
-          const courier = normalizeCourier(courierRaw) || guessCourierFromTracking(t);
-          const dest = [map.district ? row[map.district] : '', map.province ? row[map.province] : '', map.postcode ? row[map.postcode] : ''].filter(Boolean).join(' ') || (map.address ? String(row[map.address]).slice(-60) : '');
-          if (!perTrack[t]) perTrack[t] = { tracking: t, orderNo: map.orderNo ? String(row[map.orderNo]) : '', platform: detectPlatform(f.name, headers, courier), courier, items: [],
-            recipient: map.recipient ? String(row[map.recipient]) : '', destination: dest, address: map.address ? String(row[map.address]).trim() : '', note: map.note ? String(row[map.note]).trim() : '', source: f.name };
-          perTrack[t].items.push({ name: map.name ? String(row[map.name]).trim() : '', variant: map.variant ? String(row[map.variant]).trim() : '', qty: Math.max(1, parseInt(map.qty ? row[map.qty] : 1) || 1) });
-        });
-      }
+      const perTrack = {}, stat = { skipped: 0, hasName: false, skippedFile: false };
+      for (const sn of wb.SheetNames) await importSheet(f.name, XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: '', raw: false, blankrows: false }), perTrack, stat);
+      let added = 0;
       Object.values(perTrack).forEach(o => {
-        // รวมรายการสินค้าซ้ำ (ชื่อ+ตัวเลือกเดียวกัน)
         const merged = {}; o.items.forEach(i => { const k = i.name + '|' + i.variant; merged[k] = merged[k] ? (merged[k].qty += i.qty, merged[k]) : { ...i }; });
         o.items = Object.values(merged); state.master[o.tracking] = o; added++;
       });
-      results.push(`✅ ${esc(f.name)}: ${added} ออเดอร์${skipped ? ` (ข้าม ${skipped} แถวไม่มีเลขพัสดุ)` : ''}`);
-      if (!added) results[results.length - 1] = `⚠️ ${esc(f.name)}: ไม่พบคอลัมน์เลขพัสดุ / ไม่มีเลขพัสดุ`;
+      const cs = {}; Object.values(perTrack).forEach(o => cs[o.courier] = (cs[o.courier] || 0) + 1);
+      const csTxt = Object.entries(cs).map(([c, n]) => `${COURIERS[c].short} ${n}`).join(', ');
+      if (stat.skippedFile) results.push(`⏭️ ${esc(f.name)}: ข้ามไฟล์`);
+      else if (!added) results.push(`⚠️ ${esc(f.name)}: ไม่พบเลขพัสดุในไฟล์ (ไฟล์ยังไม่ได้กดจัดส่ง หรือไม่ใช่ไฟล์ออเดอร์)`);
+      else results.push(`✅ ${esc(f.name)}: ${added} ออเดอร์ (${esc(csTxt)})${stat.hasName ? '' : ' <b class="text-amber-700">⚠️ ไม่มีชื่อสินค้าในไฟล์</b>'}`);
     } catch (e) { results.push(`❌ ${esc(f.name)}: อ่านไฟล์ไม่ได้ (${esc(e.message)})`); }
   }
   rebuildOrderIndex(); persist(); refreshAll(); renderMasterOrderList();
@@ -1436,13 +1531,15 @@ function renderMasterOrderList() {
   $('masterShopeeCount').textContent = all.filter(m => m.platform === 'Shopee').length;
   $('masterTiktokCount').textContent = all.filter(m => m.platform === 'TikTok').length;
   $('masterLazadaCount').textContent = all.filter(m => m.platform === 'Lazada').length;
+  const cc = {}; all.forEach(m => cc[m.courier] = (cc[m.courier] || 0) + 1);
+  $('masterCourierChips').innerHTML = Object.entries(cc).sort((a, b) => b[1] - a[1]).map(([c, n]) => `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded" style="background:${COURIERS[c].bg};color:${COURIERS[c].fg}">${esc(COURIERS[c].short)} ${n}</span>`).join('');
   const q = ($('searchMasterInput').value || '').toLowerCase(), pf = $('filterMasterPlatform').value;
   const packed = new Set(state.scans.map(s => s.tracking));
   const l = all.filter(m => (pf === 'ALL' || m.platform === pf) && (!q || (m.tracking + ' ' + m.orderNo + ' ' + itemsText(m.items) + ' ' + m.recipient).toLowerCase().includes(q)));
   $('masterSearchCount').textContent = `แสดง ${Math.min(l.length, 200)} / ${l.length}`;
   $('masterOrdersListContainer').innerHTML = l.slice(0, 200).map(m => `<div class="p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs">
       <div class="flex items-center gap-1">${platformBadge(m.platform)} ${courierBadge(m.courier)} <span class="font-mono font-bold">${esc(m.tracking)}</span>${packed.has(m.tracking) ? '<span class="ml-auto text-emerald-600 font-bold">✓ แพ็คแล้ว</span>' : ''}</div>
-      <p class="font-semibold mt-0.5">${esc(itemsText(m.items))}</p><p class="text-[11px] text-slate-500">${esc(m.recipient)} • ${esc(m.destination)}</p></div>`).join('') || '<p class="text-center text-slate-400 py-4 text-xs">ยังไม่มีออเดอร์ — โหลดไฟล์ Excel หรือกด “โหลดข้อมูลทดลอง”</p>';
+      ${m.items.some(i => i.name) ? `<p class="font-semibold mt-0.5">${esc(itemsText(m.items))}</p>` : '<p class="text-[11px] text-amber-700 mt-0.5">⚠️ ไฟล์นี้ไม่มีชื่อสินค้า</p>'}${[m.recipient, m.destination].filter(Boolean).length ? `<p class="text-[11px] text-slate-500">${esc([m.recipient, m.destination].filter(Boolean).join(' • '))}</p>` : ''}<p class="text-[10px] text-slate-400">📄 ${esc(m.source || '')}</p></div>`).join('') || '<p class="text-center text-slate-400 py-4 text-xs">ยังไม่มีออเดอร์ — โหลดไฟล์ Excel หรือกด “โหลดข้อมูลทดลอง”</p>';
 }
 function clearMasterData() { if (!confirm('ล้างไฟล์ออเดอร์ทั้งหมด? (ประวัติการแพ็คยังอยู่)')) return; state.master = {}; rebuildOrderIndex(); persist(); refreshAll(); renderMasterOrderList(); }
 function loadDemoData() {
