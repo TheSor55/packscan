@@ -64,7 +64,7 @@
           <svg class="w-6 h-6 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
         </div>
         <div>
-          <h1 class="text-base font-bold leading-tight flex items-center gap-1.5">PackScan Pro <span class="text-[10px] bg-emerald-500 font-bold px-1.5 rounded">Hybrid</span><span class="text-[9px] text-indigo-200 font-normal">v2.2</span></h1>
+          <h1 class="text-base font-bold leading-tight flex items-center gap-1.5">PackScan Pro <span class="text-[10px] bg-emerald-500 font-bold px-1.5 rounded">Hybrid</span><span class="text-[9px] text-indigo-200 font-normal">v2.3.1</span></h1>
           <p class="text-[11px] text-indigo-200">เพชรสยาม (PST) • แพ็ค • ขึ้นรถ • ส่งมอบ</p>
         </div>
       </div>
@@ -547,14 +547,23 @@ function normalizeCourier(str) {
   return null;
 }
 // เดาขนส่งจากรูปแบบเลขพัสดุ (ใช้เมื่อไม่มีในไฟล์ออเดอร์) — ไฟล์ออเดอร์แม่นกว่าเสมอ
+let learnedRules = lsGet('psp_courier_rules_v1', {});
+const courierSig = t => { const m = String(t).match(/^[A-Z]+/); return (m ? m[0] : String(t).slice(0, 2)) + ':' + String(t).length; };
+// จำว่า "รหัสหน้าตาแบบนี้ = ขนส่งนี้" จากที่ผู้ใช้ยืนยัน/แก้ไข (เช่น 66xxxxxxxxxxxx 14 หลัก)
+function learnCourier(t, c) {
+  if (!t || !c || c === 'OTHER') return;
+  learnedRules[courierSig(t)] = c; lsSet('psp_courier_rules_v1', learnedRules);
+  todayScans().forEach(s => { if (s.courier === 'OTHER' && courierSig(s.tracking) === courierSig(t)) { s.courier = c; if (s.platform === 'Other') s.platform = platformFromCourier(c); } });
+}
 function guessCourierFromTracking(t) {
+  const lr = learnedRules[courierSig(t)]; if (lr) return lr;
   if (/^SPX/.test(t) || /^TH\d{12,14}[A-Z]?$/.test(t)) return 'SPX';
   if (/^TH\d{2}[0-9A-Z]{8,12}$/.test(t) && /[A-Z]/.test(t.slice(2))) return 'FLASH';
   if (/^(KER|KEX|KBK|SHP)/.test(t)) return 'KERRY';
   if (/^(LEX|LX[A-Z]{2}|LZ)/.test(t)) return 'LEX';
   if (/^(JT|JNT)/.test(t) || /^[68]\d{11}$/.test(t)) return 'JT';
   if (/^(TDZ|THDHL|DHL)/.test(t) || /^71\d{14}$/.test(t)) return 'DHL'; // DHL eCommerce TH: "DHL ID: 7127…" 16 หลัก
-  if (/^BEST/.test(t)) return 'BEST';
+  if (/^BEST/.test(t) || /^66\d{12}$/.test(t)) return 'BEST'; // BEST Express TH: 66 + 12 หลัก (เช่น 66857232447045)
   if (/^[A-Z]{2}\d{9}TH$/.test(t)) return 'THP';
   return 'OTHER';
 }
@@ -900,7 +909,7 @@ function setupZoom(track, caps) {
   if (!caps.zoom || !caps.zoom.max || caps.zoom.max <= 1) { box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
   const z = $('zoomRange'); z.min = caps.zoom.min || 1; z.max = Math.min(caps.zoom.max, 5); z.step = caps.zoom.step || 0.1;
-  const start = Math.min(2, z.max); z.value = start;
+  const start = Math.min(1.5, z.max); z.value = start;
   track.applyConstraints({ advanced: [{ zoom: start }] }).catch(() => {});
   z.oninput = () => track.applyConstraints({ advanced: [{ zoom: Number(z.value) }] }).catch(() => {});
 }
@@ -976,7 +985,7 @@ document.addEventListener('keydown', e => {
 // ---------- CODE PARSING ----------
 // ดัชนี เลขออเดอร์ → เลขพัสดุ (สแกนบาร์โค้ด/QR เลขออเดอร์บนใบปะหน้าก็หาเจอ)
 let orderIndex = {};
-function rebuildOrderIndex() { orderIndex = {}; Object.values(state.master).forEach(m => { if (m.orderNo) orderIndex[String(m.orderNo).toUpperCase().replace(/\s+/g, '')] = m.tracking; }); }
+function rebuildOrderIndex() { orderIndex = {}; Object.values(state.master).forEach(m => { if (m.orderNo) orderIndex[String(m.orderNo).toUpperCase().replace(/\s+/g, '')] = m.tracking; (m.alt || []).forEach(a => { if (!state.master[a]) orderIndex[a] = m.tracking; }); }); }
 function findInMaster(x) { if (!x) return null; if (state.master[x]) return x; if (orderIndex[x]) return orderIndex[x]; return null; }
 function extractTracking(raw) {
   const up = String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
@@ -998,7 +1007,7 @@ function onCodeDetected(raw, source, rawFull) {
   if (state.workflow === 'truck') return handleTruckScan(code);
   return handlePackScan(code);
 }
-let lastRaw = '';
+let lastRaw = '', missStreak = 0;
 
 // ---------- PACK MODE ----------
 function buildRecord(code) {
@@ -1012,7 +1021,7 @@ function buildRecord(code) {
   };
 }
 function handlePackScan(code) {
-  const dup = todayScans().find(s => s.tracking === code);
+  const dup = findTodayScan(code);
   if (dup) {
     beepWarn(); speak('สแกนซ้ำ');
     showAlert({ kind: 'warn', icon: '🔁', title: 'สแกนซ้ำ!', sub: 'กล่องนี้แพ็คไปแล้วเมื่อ ' + timeStr(dup.time), detail: `<span class="font-mono">${esc(code)}</span><br>${esc(itemsText(dup.items))}`, autoClose: 2200 });
@@ -1024,7 +1033,8 @@ function handlePackScan(code) {
     else { beepWarn(); showToast('⚠️ กรุณากด “ยืนยันแพ็ค” กล่องก่อนหน้าก่อน', 'amber'); return; }
   }
   state.pending = buildRecord(code);
-  if (state.pending.inMaster) { beepOK(); }
+  if (state.pending.inMaster) { beepOK(); missStreak = 0; }
+  else if (Object.keys(state.master).length && ++missStreak >= 3) { missStreak = 0; setTimeout(() => showToast('⚠️ สแกน 3 กล่องติดกันไม่พบในไฟล์ออเดอร์<br>ไฟล์ที่โหลดไว้อาจไม่ใช่ของรอบนี้ — โหลดไฟล์ล่าสุดที่แท็บ “ไฟล์ออเดอร์”', 'amber', 6000), 300); }
   else { beepWarn(); if (state.settings.requireMaster) speak('ไม่พบในไฟล์ออเดอร์'); }
   renderResultCard();
 }
@@ -1107,7 +1117,9 @@ function saveEditedItem() {
   if (!r.items.length) r.items.push({ name: '', variant: '', qty: 1 });
   r.items[0].name = $('editModalProduct').value.trim(); r.items[0].variant = $('editModalVariant').value.trim();
   r.items[0].qty = Math.max(1, parseInt($('editModalQty').value) || 1);
+  const oldCourier = r.courier;
   r.platform = $('editModalPlatform').value; r.courier = $('editModalCourier').value;
+  if (oldCourier === 'OTHER' && r.courier !== 'OTHER') learnCourier(r.tracking, r.courier);
   r.destination = $('editModalDestination').value.trim(); r.recipient = $('editModalRecipient').value.trim();
   closeEditItemModal();
   if (r === state.pending) renderResultCard(); else { persist(); refreshAll(); renderScanList(); }
@@ -1117,7 +1129,7 @@ function saveEditedItem() {
 // ---------- TRUCK LOADING CHECK ----------
 function handleTruckScan(code) {
   const target = state.truckTarget, tName = COURIERS[target].name;
-  const rec = todayScans().find(s => s.tracking === code);
+  const rec = findTodayScan(code);
   const m = state.master[code];
   if (!rec) {
     const c = m ? m.courier : guessCourierFromTracking(code);
@@ -1157,8 +1169,9 @@ function handleTruckScan(code) {
   showAlert({ kind: 'ok', icon: '✅', title: 'ถูกต้อง!<br>ยกขึ้นรถได้', sub: `${esc(tName)} • ${list.filter(s => s.loaded).length}/${list.length} กล่อง`, detail: `<span class="font-mono">${esc(code)}</span><br>${esc(itemsText(rec.items))}`, autoClose: 1300 });
 }
 function assignAndLoad(code) {
-  const rec = todayScans().find(s => s.tracking === code); if (!rec) return;
+  const rec = findTodayScan(code); if (!rec) return;
   rec.courier = state.truckTarget; if (rec.platform === 'Other') rec.platform = platformFromCourier(rec.courier);
+  learnCourier(rec.tracking, rec.courier); persist();
   lastCode = ''; dismissAlert(); handleTruckScan(code);
 }
 function showMissingForCourier(c) {
@@ -1496,6 +1509,10 @@ async function importSheet(fileName, aoa, perTrack, stat) {
     const dest = [cell(r, 'district'), cell(r, 'province'), cell(r, 'postcode')].filter(Boolean).join(' ') || cell(r, 'address').slice(-60);
     if (!perTrack[t]) perTrack[t] = { tracking: t, orderNo: cell(r, 'orderNo'), platform: detectPlatform(fileName, headers, courier), courier, items: [],
       recipient: cell(r, 'recipient'), destination: dest, address: cell(r, 'address'), note: cell(r, 'note'), source: fileName };
+    // เก็บ "รหัสอื่นๆ" ทุกช่องในแถวที่หน้าตาเหมือนเลขพัสดุ/เลขอ้างอิง (เช่น DHL ID, Ref ID, เลขออเดอร์) → สแกนรหัสไหนบนใบปะหน้าก็หาออเดอร์เจอ
+    const alt = new Set(perTrack[t].alt || []);
+    r.forEach((v, i) => { if (i === map.tracking) return; const u = String(v ?? '').toUpperCase().replace(/\s+/g, ''); if (isTrackingLike(u) && u !== t && !/^0\d{8,9}$/.test(u) && !/^\+?66\d{8,9}$/.test(u)) alt.add(u); });
+    perTrack[t].alt = [...alt].slice(0, 8);
     const info = map.productInfo !== undefined ? parseProductInfo(cell(r, 'productInfo')) : [];
     if (info.length && map.name === undefined) perTrack[t].items.push(...info);
     else perTrack[t].items.push({ name: cell(r, 'name'), variant: cell(r, 'variant'), qty: Math.max(1, parseInt(cell(r, 'qty')) || 1) });
@@ -1522,8 +1539,22 @@ async function handleMasterFileUpload(input) {
       else results.push(`✅ ${esc(f.name)}: ${added} ออเดอร์ (${esc(csTxt)})${stat.hasName ? '' : ' <b class="text-amber-700">⚠️ ไม่มีชื่อสินค้าในไฟล์</b>'}`);
     } catch (e) { results.push(`❌ ${esc(f.name)}: อ่านไฟล์ไม่ได้ (${esc(e.message)})`); }
   }
-  rebuildOrderIndex(); persist(); refreshAll(); renderMasterOrderList();
+  rebuildOrderIndex(); const bf = backfillScans(); if (bf) results.push(`🔄 เติมข้อมูลสินค้าให้กล่องที่สแกนไปแล้ว ${bf} กล่อง`);
+  persist(); refreshAll(); renderMasterOrderList();
   $('importResult').innerHTML = results.join('<br>'); $('importResult').classList.remove('hidden');
+}
+// สแกนไปก่อนแล้วค่อยโหลดไฟล์ทีหลัง → เติมชื่อสินค้า/ผู้รับ/ขนส่ง ให้กล่องที่ "นอกไฟล์" ของวันนี้อัตโนมัติ
+function findTodayScan(code) { return todayScans().find(s => s.tracking === code || s.matched === code); }
+function backfillScans() {
+  let n = 0;
+  todayScans().forEach(s => {
+    if (s.inMaster) return;
+    const k = findInMaster(s.tracking); if (!k) return;
+    const m = state.master[k];
+    Object.assign(s, { orderNo: m.orderNo, platform: m.platform, courier: m.courier, items: JSON.parse(JSON.stringify(m.items)), recipient: m.recipient, destination: m.destination, address: m.address || '', note: m.note, inMaster: true, matched: k });
+    n++;
+  });
+  return n;
 }
 function renderMasterOrderList() {
   const all = Object.values(state.master);
